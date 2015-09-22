@@ -1,2 +1,2 @@
 # envirohealth
-EnviroHealth
+EnviroHealth Georgetown Data Science Capstone Project
