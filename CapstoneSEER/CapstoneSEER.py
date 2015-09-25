@@ -13,8 +13,6 @@
 import re
 import time
 import os
-from pandas import Series, DataFrame
-import pandas as pd
 import sqlite3
 
 class LoadSeerData:
@@ -27,9 +25,9 @@ class LoadSeerData:
             path += '\\'
 
         self.path = path
-        self.SeerDataDictRegexPat = '\s+@\s+([0-9]+)\s+([A-Z0-9_]*)\s+[$a-z]+([0-9]+)\.\s+/\* (.+?(?=\*/))'
 
         # used to read in data dictionary, used to parse actual data files.
+        self.SeerDataDictRegexPat = '\s+@\s+([0-9]+)\s+([A-Z0-9_]*)\s+[$a-z]+([0-9]+)\.\s+/\* (.+?(?=\*/))'
         self.dataDictFieldNames = ['Offest', 'ColName', 'Length']
         self.colOffset = []
         self.colName = []
@@ -42,23 +40,26 @@ class LoadSeerData:
 
 
     def init_database(self, reload):
+        try:
+            if reload:
+                os.remove(self.path + 'seer.db')
 
-        if reload:
-            os.remove(self.path + 'seer.db')
+            #initialize database
+            self.db_conn = sqlite3.connect(self.path+'seer.db')
+            self.db_cur = self.db_conn.cursor()
 
-        #initialize database
-        self.db_conn = sqlite3.connect(self.path+'seer.db')
-        self.db_cur = self.db_conn.cursor()
+            if self.verbose:
+                print('Database initialized\n')
+        except Exception as e:
+            print('ERROR connecting to the database: ' + e.strerror)
+            raise(e)
 
-        if self.verbose:
-            print('Database initialized\n')
 
 
     def load_data_dictionary(self, fname = r'incidence\read.seer.research.nov14.sas'):
 
         if self.verbose:
             print('Start Load of Data Dictionary\n')
-
 
         # TODO look into a better way to read this file, don't like the if elif structure
         with open(self.path + fname) as fDataDict:
@@ -77,51 +78,13 @@ class LoadSeerData:
             print('Data Dictionary loaded\n')
 
 
-
-    def convert_data_to_csv(self, fname = r'incidence\yr1973_2012.seer9\breast.txt'):
-
-
-        return
-
-        self.load_data_dictionary()
-
-        if not (len(self.colOffset) == len(self.colLength) == len(self.colName)) and len(self.colName) > 0:
-            raise('Bad Data Dictionary Data')
-
-
-        # create a new csv file for writing in the same directory of the original SEER data text file with a .csv file extension
-        fCsvName = os.path.splitext(fname)[0]+".csv"
-        # delete any existing file
-        try:
-            os.remove(self.path + fCsvName)
-        except:
-            pass
-
-        # create csv output file
-        fCSV = open(self.path + fCsvName, 'w')
-
-        # write the field names as the first row
-        fldNames = ','.join(map(str, self.colName)) 
-        fCSV.write(    fldNames + '\n')
-
-        # open SEER fixed width text file
-        with open(self.path + fname, 'r') as fData:
-            x = 0
-            for line in fData:
-                for fldNum in range(len(self.colOffset)):
-                    field = line[self.colOffset[fldNum]:self.colOffset[fldNum]+self.colLength[fldNum]]
-                    fCSV.write(field.strip() + ',')
-                fCSV.write('\n')
-                x += 1
-                if x > 100 and testMode:
-                    break
-
-
-
-
     def load_data(self, fname = r'incidence\yr1973_2012.seer9\breast.txt'):
 
-        self.load_data_dictionary()
+        try:
+            self.load_data_dictionary()
+        except Exception as e:
+            print('ERROR loading data dictionary: ' + e.strerror)
+            raise(e)
 
         if not (len(self.colOffset) == len(self.colLength) == len(self.colName)) and len(self.colName) > 0:
             raise('Bad Data Dictionary Data')
@@ -186,27 +149,17 @@ class LoadSeerData:
         # create the table
         self.db_conn.execute('create table seer(SOURCE,' + delimList + ')')
                             
-
-
     def __str__(self, **kwargs):
-        return path
-
-
+        pass
 
 
 def test():
     seer = LoadSeerData()
     p = seer.load_data(r'incidence\yr1973_2012.seer9\breast.txt')
-    print(p)
 
 
-
-
- 
 if __name__ == '__main__':
 
     timeStart = time.clock();
     test()
     print('Elapsed Time: ', time.clock() - timeStart)
-
-
