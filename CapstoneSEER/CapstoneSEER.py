@@ -14,6 +14,7 @@ import re
 import time
 import os
 import sqlite3
+import glob
 
 class LoadSeerData:
 
@@ -36,6 +37,7 @@ class LoadSeerData:
         self.testMode = testMode
         self.verbose = verbose
 
+        # open connection to the database
         self.init_database(reload)
 
 
@@ -57,7 +59,6 @@ class LoadSeerData:
 
 
     def load_data_dictionary(self, fname = r'incidence\read.seer.research.nov14.sas'):
-
         if self.verbose:
             print('Start Load of Data Dictionary\n')
 
@@ -68,7 +69,7 @@ class LoadSeerData:
                 if fields:
                     for x in range(4):
                         if x == 0:
-                            self.colOffset.append(int(fields.groups()[x])-1)  # change to 0 offset
+                            self.colOffset.append(int(fields.groups()[x])-1)  # change to 0 offset, Data Dict starts at 1
                         elif x == 1:
                             self.colName.append(fields.groups()[x])
                         elif x == 2:
@@ -78,8 +79,9 @@ class LoadSeerData:
             print('Data Dictionary loaded\n')
 
 
+    # supports specific file or wildcard filename to import all data in one call.
+    # path specified is off of the path sent in the constructor so actual filename will be self.path + fname
     def load_data(self, fname = r'incidence\yr1973_2012.seer9\breast.txt'):
-
         try:
             self.load_data_dictionary()
         except Exception as e:
@@ -89,6 +91,18 @@ class LoadSeerData:
         if not (len(self.colOffset) == len(self.colLength) == len(self.colName)) and len(self.colName) > 0:
             raise('Bad Data Dictionary Data')
 
+        # create the table in the db
+        self.create_table()
+
+        totRows = 0
+        for fileName in glob.glob(self.path + fname):
+            totRows += self.load_one_file(fileName)
+
+        if self.verbose:
+            print('\nLoading Data completed. Rows Imported: {}\n'.format(totRows))
+
+
+    def load_one_file(self, fname):
         if self.verbose:
             print('Start Loading Data: {}\n'.format(fname))
 
@@ -102,21 +116,21 @@ class LoadSeerData:
 
         command = 'INSERT INTO seer(SOURCE,' + fieldList + ') values (' + '?,' * len(self.colName) + '?)'
 
-        # list to hold batch of row values to insert in one transation to speed up loading. INSERT 1000 at a time.
-        batchSize = 1000
-        multipleRowValues = []
-        totRows = 0
-
-        self.create_table()
+        # create variables needed in loop
+        batchSize = 1000             # INSERT 1000 at a time.
+        rowValues = []               # hold one records values
+        multipleRowValues = []       # hold batchSize lists of rowValues to commit to DB in one transaction
+        totRows = 0                   
 
         # open SEER fixed width text file
-        with open(self.path + fname, 'r') as fData:
+        with open(fname, 'r') as fData:
             
             for line in fData:
                 totRows += 1
-                rowValues = []
+                rowValues.clear()
                 rowValues.append(fileSource)  # first field is the SEER data file name i.e. breast or respir
 
+                # iterate through all of the fields in the text file and store to rowValues list
                 for fldNum in range(len(self.colOffset)):
                     field = line[self.colOffset[fldNum]:self.colOffset[fldNum]+self.colLength[fldNum]]
                     rowValues.append('\'' + field + '\'')
@@ -124,6 +138,7 @@ class LoadSeerData:
                 # store this one row list of values to the list of lists for batch insert
                 multipleRowValues.append(rowValues)
 
+                # commit to DB in batchSize batches to speed performance
                 if totRows % batchSize == 0:
                     self.db_cur.executemany(command, multipleRowValues)
                     self.db_conn.commit()
@@ -131,18 +146,20 @@ class LoadSeerData:
                     if self.verbose:
                         print('', end='.', flush=True)
 
+                # if in testMode, exit loop after 100 records are stored
                 if totRows > 100 and self.testMode:
                     self.db_cur.executemany(command, multipleRowValues)
                     self.db_conn.commit()
                     break
 
         if self.verbose:
-            print('\nLoading Data completed. Rows Imported: {}\n'.format(totRows))
+            print('\nLoading Data file completed. Rows Imported: {}\n'.format(totRows))
+
+        return totRows
 
 
     def create_table(self):
         # Create the table from the fields read from data dictionary and stored in self.colName
-
         # Make colName list comma delimited
         delimList = ','.join(map(str, self.colName)) 
 
@@ -155,7 +172,8 @@ class LoadSeerData:
 
 def test():
     seer = LoadSeerData()
-    p = seer.load_data(r'incidence\yr1973_2012.seer9\breast.txt')
+    #p = seer.load_data(r'incidence\yr1973_2012.seer9\breast.txt')  # load one file
+    p = seer.load_data(r'incidence\yr1973_2012.seer9\*.txt')   # load all files
 
 
 if __name__ == '__main__':
