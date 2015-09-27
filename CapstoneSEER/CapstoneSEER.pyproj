@@ -23,6 +23,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CapstoneSEER.py" />
+    <Compile Include="CapstoneSEERtest.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Data\" />
