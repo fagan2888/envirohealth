@@ -1,2 +1,2 @@
-# CapstoneSEER
-Capstone project with SEER data
+# envirohealth
+EnviroHealth Georgetown Data Science Capstone Project
