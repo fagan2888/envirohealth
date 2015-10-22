@@ -104,7 +104,7 @@ class LoadSeerData(MasterSeer):
         if self.verbose:
             print('\n - Loading completed. Rows Imported: {0:d}'.format(dfData.shape[0]))
 
-        return dfData.shape[0]   #############################
+        return dfData.shape[0] # number of rows
 
 
     def create_table(self, tblName):

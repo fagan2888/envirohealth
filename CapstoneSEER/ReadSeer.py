@@ -1,14 +1,13 @@
-﻿#import re
-import time
-#import os
+﻿import time
 import sqlite3
-#import glob
 import pandas as pd
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from MasterSeer import MasterSeer
-
+from sklearn.naive_bayes import MultinomialNB, GaussianNB, BaseDiscreteNB, BernoulliNB
+import math
+import itertools
 
 class ReadSeer(MasterSeer):
 
@@ -33,8 +32,12 @@ class ReadSeer(MasterSeer):
         super().__init__(path, False, testMode, verbose, batch)
         self.db_conn, self.db_cur = super().init_database(False)
 
+    def __del__(self):
+        self.db_conn.close()
+
 
     def describe_data(self, source = 'BREAST'):
+        xls_name = source + '_seer_describe.xlsx'
 
         if self.testMode:
             df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 limit 1000".format(source), self.db_conn)
@@ -43,27 +46,19 @@ class ReadSeer(MasterSeer):
 
 
         desc = df.describe(include='all')
-
-        exc = pd.ExcelWriter('seer_describe.xlsx')
-
+        exc = pd.ExcelWriter(xls_name)
         desc.to_excel(exc)
-
         exc.save()
-
+        print("Data description saved to {0}".format(xls_name))
 
         #print(df.max(0))
-
         #df.hist('YR_BRTH')
         #plt.show()
-
         #pd.DataFrame.hist(df) #, 'YR_BRTH')
-
-
         #df1 = df.applymap(lambda x: isinstance(x, (int, float))).all(1)
+        return desc
 
-        return  ##########################################################
-
-
+    def _test_code(self): ## not working used for testing
         res = []
 
         x = pd.Series()
@@ -97,64 +92,109 @@ class ReadSeer(MasterSeer):
                 pct_blank = (float(r[1])/float(r[2])) * 100.0
                 f.write('{0:20s}   {1:5d}   {2:7d}    {3:3.1f}  {4}\n'.format(r[0], r[1], r[2], pct_blank, isalpha))
 
-
         #print(res)
-           
-        return
-
         df[1][3] = None
-
-
-
         #df.fillna('None')
-
         #df.replace([''], [None])
         print(df.head())
-
-
         #c = df.count()
         #print(c)
-
-
         #x = np.count_nonzero(df.isnull().values)
-
-
         #with open('describe.txt', 'w') as f:
         #    f.write(df.describe().__str__())
-
         #print(df.describe())
+        return
 
 
+    def get_cols(self, desc):
+
+        cols = []
+
+        for field in desc:
+            x = desc[field]['count']
+            if desc[field]['count'] > desc['CASENUM']['count'] / 2 and \
+               desc[field]['25%'] != desc[field]['75%']:
+                cols.append(field)
+        return cols
+
+    def test_bayes(self, cols, source = 'BREAST'):
+
+        xls_name = source + '_seer_bayes.xlsx'
+        dependent = 'SRV_TIME_MON'
+        exclude = [dependent, 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA']
+
+        styles = [MultinomialNB, GaussianNB, BernoulliNB]
+        style_names = ['MultinomialNB', 'GaussianNB', 'BernoulliNB']
+
+        res = []
+
+        delimList = ','.join(map(str, cols)) 
+        df = pd.read_sql_query("SELECT " + delimList + " " \
+                               "FROM {0} \
+                                WHERE AGE_DX < 100 \
+                                AND EOD10_SZ BETWEEN 1 AND 100 \
+                                AND SRV_TIME_MON BETWEEN 1 AND 1000 \
+                                LIMIT 10000".format(source), self.db_conn)
+
+        df_train = df.sample(frac = 0.80)
+        df_test = df.sample(frac = 0.20)
+
+        cols = [col for col in cols if col not in exclude]
+
+        col_cnt = len(cols)
+        tot_cnt = (math.factorial(col_cnt) / math.factorial(col_cnt-3)) * len(styles)
+        print("Processing: {0} tests.".format(tot_cnt))
+
+        counter = 0
+        for style in range(len(styles)):
+            style_fnc = styles[style]
+            print("Testing: {0}".format(style_names[style]))
+            for combo in itertools.combinations([col for col in cols if col not in exclude], 3):
+                try: 
+                    x = df_train[[combo[0], combo[1], combo[2]]].values
+                    y = df_train[dependent].values
+                    model = style_fnc()
+                    model.fit(x,y)
+                    x = df_test[[combo[0], combo[1], combo[2]]].values
+                    y = df_test[dependent].values
+                    z = model.score(x, y)
+                    res.append([style_names[style], z, combo[0], combo[1], combo[2]])
+                    #print("{0} {1} {2} {3}".format(z, col1, col2, col3))
+                    counter += 1
+                    if counter % int(tot_cnt/100) == 0:
+                        print("Completed: {0:.1f}%".format((counter*100.0)/tot_cnt))
+                except Exception as err:
+                    counter += 1
+                    #print(err)
+
+        print("All Completed: {0}".format(counter))
+        res_df = pd.DataFrame(res)
+        exc = pd.ExcelWriter(xls_name)
+        res_df.to_excel(exc)
+        exc.save()
+
+        #predicted= model.predict([[51,2, 18], [51,3, 22], [51,4, 29]])
+        #print (predicted)
+        #plt.scatter(df['AGE_DX'], df['GRADE'])
+        #plt.show()
+        #grid   = pd.DataFrame({
+        #            'Age':  df['AGE_DX'].mean(),
+        #            'Grade': df['GRADE'].count()
+        #         })
+        #grid.plot(x='Number of Reviewers', y='Mean Rating', kind='hexbin',
+        #          xscale='log', cmap='YlGnBu', gridsize=12, mincnt=1,
+        #          title="Star Ratings by Simple Mean")
+        #plt.show()
 
 
 if __name__ == '__main__':
 
     t0 = time.perf_counter()
 
-    #plt.ion()
+    seer = ReadSeer(testMode = True)
 
-    #ts = pd.Series(np.random.randn(1000), index=pd.date_range('1/1/2000', periods=1000))
-
-    #ts = ts.cumsum()
-
-
-
-
-    #t = arange(0.0, 2.0, 0.01)
-    #s = sin(2*pi*t)
-    #plot(t, s)
-
-    #xlabel('time (s)')
-    #ylabel('voltage (mV)')
-    #title('About as simple as it gets, folks')
-    #grid(True)
-    #savefig("test.png")
-    #show()
-
-
-
-    seer = ReadSeer(testMode = False)
-
-    seer.describe_data()
+    desc = seer.describe_data()
+    cols = seer.get_cols(desc)
+    seer.test_bayes(cols)
 
     print('\nReadSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))

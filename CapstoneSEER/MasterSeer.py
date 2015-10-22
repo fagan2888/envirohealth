@@ -9,17 +9,8 @@ import pandas as pd
 class MasterSeer(object):
     """description of class"""
 
-
     # database file name on disk
     DB_NAME = 'seer.db'
-    #data dictionary fields
-    DD_OFFSET  = 0
-    DD_COLNAME = 1
-    DD_LENGTH  = 2
-    DD_MAXLENGTH = 1024   # double check for corrupted data dictionary, prevent potential buffer overruns on insert or create table statements.
-    # used to read in data dictionary
-    DD_REGEX   = '\s+@\s+([0-9]+)\s+([A-Z0-9_]*)\s+[$a-z]+([0-9]+)\.\s+/\* (.+?(?=\*/))'
-
 
     def __init__(self, path = r'.\data', reload = True, testMode = False, verbose = True, batch = 5000):
         self.path = path
