@@ -8,6 +8,9 @@ from MasterSeer import MasterSeer
 from sklearn.naive_bayes import MultinomialNB, GaussianNB, BaseDiscreteNB, BernoulliNB
 import math
 import itertools
+from sklearn.datasets import make_classification
+from sklearn.ensemble import ExtraTreesClassifier
+
 
 class ReadSeer(MasterSeer):
 
@@ -40,7 +43,7 @@ class ReadSeer(MasterSeer):
         xls_name = source + '_seer_describe.xlsx'
 
         if self.testMode:
-            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 limit 1000".format(source), self.db_conn)
+            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 limit 10000".format(source), self.db_conn)
         else:
             df = pd.read_sql_query("SELECT * from {0}".format(source), self.db_conn)
 
@@ -107,13 +110,13 @@ class ReadSeer(MasterSeer):
 
 
     def get_cols(self, desc):
-
+        exclude = ['CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 'SEQ_NUM']
         cols = []
-
         for field in desc:
             x = desc[field]['count']
             if desc[field]['count'] > desc['CASENUM']['count'] / 2 and \
-               desc[field]['25%'] != desc[field]['75%']:
+               desc[field]['25%'] != desc[field]['75%'] and \
+               field not in exclude:
                 cols.append(field)
         return cols
 
@@ -121,12 +124,10 @@ class ReadSeer(MasterSeer):
 
         xls_name = source + '_seer_bayes.xlsx'
         dependent = 'SRV_TIME_MON'
-        exclude = [dependent, 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA']
+        #exclude = [dependent, 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 'SEQ_NUM']
 
         styles = [MultinomialNB, GaussianNB, BernoulliNB]
         style_names = ['MultinomialNB', 'GaussianNB', 'BernoulliNB']
-
-        res = []
 
         delimList = ','.join(map(str, cols)) 
         df = pd.read_sql_query("SELECT " + delimList + " " \
@@ -134,22 +135,27 @@ class ReadSeer(MasterSeer):
                                 WHERE AGE_DX < 100 \
                                 AND EOD10_SZ BETWEEN 1 AND 100 \
                                 AND SRV_TIME_MON BETWEEN 1 AND 1000 \
-                                LIMIT 10000".format(source), self.db_conn)
+                                LIMIT 1000".format(source), self.db_conn)
+
+
+        #self.find_clfs(df)
+        #return
 
         df_train = df.sample(frac = 0.80)
         df_test = df.sample(frac = 0.20)
 
-        cols = [col for col in cols if col not in exclude]
+        #cols = [col for col in cols if col not in exclude]
 
         col_cnt = len(cols)
         tot_cnt = (math.factorial(col_cnt) / math.factorial(col_cnt-3)) * len(styles)
-        print("Processing: {0} tests.".format(tot_cnt))
+        print("Processing: {0} tests.".format(int(tot_cnt)))
 
+        res = []
         counter = 0
         for style in range(len(styles)):
             style_fnc = styles[style]
             print("Testing: {0}".format(style_names[style]))
-            for combo in itertools.combinations([col for col in cols if col not in exclude], 3):
+            for combo in itertools.combinations(cols, 3):
                 try: 
                     x = df_train[[combo[0], combo[1], combo[2]]].values
                     y = df_train[dependent].values
@@ -161,30 +167,23 @@ class ReadSeer(MasterSeer):
                     res.append([style_names[style], z, combo[0], combo[1], combo[2]])
                     #print("{0} {1} {2} {3}".format(z, col1, col2, col3))
                     counter += 1
-                    if counter % int(tot_cnt/100) == 0:
-                        print("Completed: {0:.1f}%".format((counter*100.0)/tot_cnt))
+                    if counter % 100 == 0:
+                        print("Completed: {0}".format(counter, flush=True), end = '\r')
                 except Exception as err:
                     counter += 1
                     #print(err)
 
-        print("All Completed: {0}".format(counter))
+        print("\nAll Completed: {0}".format(counter))
         res_df = pd.DataFrame(res)
         exc = pd.ExcelWriter(xls_name)
         res_df.to_excel(exc)
         exc.save()
 
-        #predicted= model.predict([[51,2, 18], [51,3, 22], [51,4, 29]])
-        #print (predicted)
-        #plt.scatter(df['AGE_DX'], df['GRADE'])
-        #plt.show()
-        #grid   = pd.DataFrame({
-        #            'Age':  df['AGE_DX'].mean(),
-        #            'Grade': df['GRADE'].count()
-        #         })
-        #grid.plot(x='Number of Reviewers', y='Mean Rating', kind='hexbin',
-        #          xscale='log', cmap='YlGnBu', gridsize=12, mincnt=1,
-        #          title="Star Ratings by Simple Mean")
-        #plt.show()
+
+
+
+
+
 
 
 if __name__ == '__main__':
