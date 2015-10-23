@@ -111,6 +111,9 @@ class ReadSeer(MasterSeer):
 
 
     def get_cols(self, desc):
+        # only select fields where the 25th percentile and the 75th are different and at lease 50% of the fields have values. 
+        # Exclude the following fields because they have no clinical significance or they are text data. May need to code these values.
+        # exclude srv_time_mon from this section since it is the variable we are testing for.
         exclude = ['SRV_TIME_MON', 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 'SEQ_NUM']
         cols = []
         for field in desc:
