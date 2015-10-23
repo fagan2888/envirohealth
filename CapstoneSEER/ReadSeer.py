@@ -10,6 +10,7 @@ import math
 import itertools
 from sklearn.datasets import make_classification
 from sklearn.ensemble import ExtraTreesClassifier
+from sklearn import cross_validation
 
 
 class ReadSeer(MasterSeer):
@@ -110,7 +111,7 @@ class ReadSeer(MasterSeer):
 
 
     def get_cols(self, desc):
-        exclude = ['CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 'SEQ_NUM']
+        exclude = ['SRV_TIME_MON', 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 'SEQ_NUM']
         cols = []
         for field in desc:
             x = desc[field]['count']
@@ -124,22 +125,24 @@ class ReadSeer(MasterSeer):
 
         xls_name = source + '_seer_bayes.xlsx'
         dependent = 'SRV_TIME_MON'
-        #exclude = [dependent, 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 'SEQ_NUM']
 
         styles = [MultinomialNB, GaussianNB, BernoulliNB]
         style_names = ['MultinomialNB', 'GaussianNB', 'BernoulliNB']
 
         delimList = ','.join(map(str, cols)) 
-        df = pd.read_sql_query("SELECT " + delimList + " " \
+        df = pd.read_sql_query("SELECT " + delimList + ", "  + dependent + " "\
                                "FROM {0} \
                                 WHERE AGE_DX < 100 \
                                 AND EOD10_SZ BETWEEN 1 AND 100 \
                                 AND SRV_TIME_MON BETWEEN 1 AND 1000 \
-                                LIMIT 1000".format(source), self.db_conn)
+                                ORDER BY RANDOM() \
+                                LIMIT 50".format(source), self.db_conn)
 
 
         #self.find_clfs(df)
         #return
+
+        X_train, X_test, y_train, y_test = cross_validation.train_test_split(df, df[dependent].values, test_size=0.2, random_state=0)
 
         df_train = df.sample(frac = 0.80)
         df_test = df.sample(frac = 0.20)
