@@ -44,7 +44,7 @@ class ReadSeer(MasterSeer):
         xls_name = source + '_seer_describe.xlsx'
 
         if self.testMode:
-            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 limit 10000".format(source), self.db_conn)
+            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 ORDER BY RANDOM() LIMIT 1000".format(source), self.db_conn)
         else:
             df = pd.read_sql_query("SELECT * from {0}".format(source), self.db_conn)
 
@@ -122,35 +122,38 @@ class ReadSeer(MasterSeer):
         return cols
 
     def test_bayes(self, cols, source = 'BREAST'):
-
+        # name of excel file to dump results
         xls_name = source + '_seer_bayes.xlsx'
+        # variable to predict
         dependent = 'SRV_TIME_MON'
+        # number of records to pull from db, later separated into test/train sets
+        records = 1000
 
+        # bayes routines to test
         styles = [MultinomialNB, GaussianNB, BernoulliNB]
         style_names = ['MultinomialNB', 'GaussianNB', 'BernoulliNB']
 
+        # pull relevent fields from database using random rows.
         delimList = ','.join(map(str, cols)) 
-        df = pd.read_sql_query("SELECT " + delimList + ", "  + dependent + " "\
-                               "FROM {0} \
+        df = pd.read_sql_query("SELECT {0}, {1} \
+                                FROM {2} \
                                 WHERE AGE_DX < 100 \
                                 AND EOD10_SZ BETWEEN 1 AND 100 \
                                 AND SRV_TIME_MON BETWEEN 1 AND 1000 \
                                 ORDER BY RANDOM() \
-                                LIMIT 50".format(source), self.db_conn)
-
+                                LIMIT {3}".format(delimList, dependent, source, records), self.db_conn)
 
         #self.find_clfs(df)
         #return
 
+        # split data frame into train and test sets (80/20)
         X_train, X_test, y_train, y_test = cross_validation.train_test_split(df, df[dependent].values, test_size=0.2, random_state=0)
-
-        df_train = df.sample(frac = 0.80)
-        df_test = df.sample(frac = 0.20)
-
-        #cols = [col for col in cols if col not in exclude]
+        # test 3 features at a time
+        num_var = 3
 
         col_cnt = len(cols)
-        tot_cnt = (math.factorial(col_cnt) / math.factorial(col_cnt-3)) * len(styles)
+        # formula for number of combinations: nCr = n! / r! (n - r)! 
+        tot_cnt = (math.factorial(col_cnt) / (math.factorial(num_var) * math.factorial(col_cnt - num_var))) * len(styles)
         print("Processing: {0} tests.".format(int(tot_cnt)))
 
         res = []
@@ -158,17 +161,18 @@ class ReadSeer(MasterSeer):
         for style in range(len(styles)):
             style_fnc = styles[style]
             print("Testing: {0}".format(style_names[style]))
-            for combo in itertools.combinations(cols, 3):
+            for combo in itertools.combinations(cols, num_var):
                 try: 
-                    x = df_train[[combo[0], combo[1], combo[2]]].values
-                    y = df_train[dependent].values
+                    # train this model
+                    x = X_train[ [k for k in combo[:num_var]] ].values
+                    y = y_train
                     model = style_fnc()
                     model.fit(x,y)
-                    x = df_test[[combo[0], combo[1], combo[2]]].values
-                    y = df_test[dependent].values
+                    # now test and score it
+                    x = X_test[ [k for k in combo[:num_var]] ].values
+                    y = y_test
                     z = model.score(x, y)
-                    res.append([style_names[style], z, combo[0], combo[1], combo[2]])
-                    #print("{0} {1} {2} {3}".format(z, col1, col2, col3))
+                    res.append([style_names[style], z, [k for k in combo[:num_var]]])
                     counter += 1
                     if counter % 100 == 0:
                         print("Completed: {0}".format(counter, flush=True), end = '\r')
@@ -176,15 +180,12 @@ class ReadSeer(MasterSeer):
                     counter += 1
                     #print(err)
 
-        print("\nAll Completed: {0}".format(counter))
+        # store trial results to excel
         res_df = pd.DataFrame(res)
         exc = pd.ExcelWriter(xls_name)
         res_df.to_excel(exc)
         exc.save()
-
-
-
-
+        print("\nAll Completed: {0}  Results stored in: {1}".format(counter, xls_name))
 
 
 
