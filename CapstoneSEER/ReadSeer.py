@@ -63,12 +63,6 @@ class ReadSeer(MasterSeer):
         desc.to_excel(exc)
         exc.save()
         print("Data description saved to {0}".format(xls_name))
-
-        #print(df.max(0))
-        #df.hist('YR_BRTH')
-        #plt.show()
-        #pd.DataFrame.hist(df) #, 'YR_BRTH')
-        #df1 = df.applymap(lambda x: isinstance(x, (int, float))).all(1)
         return desc
 
 
@@ -94,6 +88,46 @@ class ReadSeer(MasterSeer):
         return cols
 
 
+    def prepare_test_train_sets(self, source, dependent, test_pct = .20):
+        """ prepare_test_train_sets(source, dependent):
+            params:  source - table name in seer database, defaults to 'breast'
+                     dependent - name of field we are testing for, need to remove from X and assign to Y
+                     test_pct - percentage of sample to rserve for testing defaults to .20
+
+            returns: X_train, X_test, y_train, y_test, cols
+                     X_train and X_test are pd.DataFrames, y_train and y_test are np.arrays
+                     cols is a list of column names
+        """
+
+        # get description of all fields
+        desc = seer.describe_data(source)
+        # select fields to test based on distribution and number of empty values
+        cols = seer.get_cols(desc)
+
+        # pull relevent fields from database using random rows.
+        delimList = ','.join(map(str, cols)) 
+        df = pd.read_sql_query("SELECT {0}, {1} \
+                                FROM {2} \
+                                WHERE AGE_DX < 100 \
+                                AND EOD10_SZ BETWEEN 1 AND 100 \
+                                AND SRV_TIME_MON BETWEEN 1 AND 1000 \
+                                ORDER BY RANDOM() \
+                                LIMIT {3}".format(delimList, dependent, source, self.sample_size), self.db_conn)
+
+        # split data frame into train and test sets (80/20)
+        df.fillna(0)
+        X_train, X_test, y_train, y_test = cross_validation.train_test_split(df, df[dependent].values, test_size=test_pct, random_state=0)
+
+        #find_features(df, X_train, y_train)
+        #return
+
+        # drop dependent colum from feature arrays
+        X_train = X_train.drop(dependent, 1)
+        X_test = X_test.drop(dependent, 1)
+
+        return X_train, X_test, y_train, y_test, cols
+
+
     def test_models(self, 
                     source = 'BREAST', 
                     styles = [MultinomialNB, GaussianNB, BernoulliNB, LinearRegression], 
@@ -117,31 +151,8 @@ class ReadSeer(MasterSeer):
         # variable to predict
         dependent = 'SRV_TIME_MON'
 
-        # get description of all fields
-        desc = seer.describe_data(source)
-        # select fields to test based on distribution and number of empty values
-        cols = seer.get_cols(desc)
-
-        # pull relevent fields from database using random rows.
-        delimList = ','.join(map(str, cols)) 
-        df = pd.read_sql_query("SELECT {0}, {1} \
-                                FROM {2} \
-                                WHERE AGE_DX < 100 \
-                                AND EOD10_SZ BETWEEN 1 AND 100 \
-                                AND SRV_TIME_MON BETWEEN 1 AND 1000 \
-                                ORDER BY RANDOM() \
-                                LIMIT {3}".format(delimList, dependent, source, self.sample_size), self.db_conn)
-
-        # split data frame into train and test sets (80/20)
-        df.fillna(0)
-        X_train, X_test, y_train, y_test = cross_validation.train_test_split(df, df[dependent].values, test_size=0.2, random_state=0)
-
-        #find_features(df, X_train, y_train)
-        #return
-
-        # drop dependent colum from feature arrays
-        X_train = X_train.drop(dependent, 1)
-        X_test = X_test.drop(dependent, 1)
+        # get sets to train and test (80/20 split)
+        X_train, X_test, y_train, y_test, cols = self.prepare_test_train_sets(source, dependent, test_pct = .20)
 
         # test 3 features at a time
         num_var = 3
