@@ -11,18 +11,20 @@ import itertools
 from sklearn.datasets import make_classification
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn import cross_validation
+from sklearn.metrics import classification_report
+from sklearn.feature_selection import SelectPercentile, f_classif, SelectFromModel
+from sklearn.linear_model import LinearRegression, LogisticRegression
 
 
 class ReadSeer(MasterSeer):
 
-    def __init__(self, path=r'.\data', reload=False, testMode=False, verbose=True, batch=5000, chunkSize=50000):
+    def __init__(self, path=r'.\data', testMode=False, verbose=True, sample_size=5000):
 
         # user supplied parameters
-        self.reload = reload        # deletes and recreates db before start of loading data.
-        self.testMode = testMode    # import one file, 100 records and return
-        self.verbose = verbose      # prints status messages
-        self.batchSize = batch      # number of rows to commit to db in one transation
-        self.batchSize = chunkSize  # number of rows to load into pandas memory at one time
+        self.testMode = testMode        # import one file, 500 records and return
+        self.verbose = verbose          # prints status messages
+        self.sample_size = sample_size  # number of rows to pull for testing
+
 
         if type(path) != str:
             raise TypeError('path must be a string')
@@ -33,7 +35,7 @@ class ReadSeer(MasterSeer):
         self.path = path
 
         # open connection to the database
-        super().__init__(path, False, testMode, verbose, batch)
+        super().__init__(path, False, verbose=verbose)
         self.db_conn, self.db_cur = super().init_database(False)
 
     def __del__(self):
@@ -41,12 +43,19 @@ class ReadSeer(MasterSeer):
 
 
     def describe_data(self, source = 'BREAST'):
+        """ describe_data(source)
+            params: source - table name in seer database, defaults to 'breast'
+            returns: panda.DataFrame.describe() data
+
+            Called from test_models()
+            the describe data is stored in an excel file. 
+        """
         xls_name = source + '_seer_describe.xlsx'
 
         if self.testMode:
-            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 ORDER BY RANDOM() LIMIT 1000".format(source), self.db_conn)
+            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 LIMIT 500".format(source), self.db_conn)  # speed up testing
         else:
-            df = pd.read_sql_query("SELECT * from {0}".format(source), self.db_conn)
+            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 LIMIT {1}".format(source, self.sample_size), self.db_conn)  # speed up testing
 
 
         desc = df.describe(include='all')
@@ -62,59 +71,19 @@ class ReadSeer(MasterSeer):
         #df1 = df.applymap(lambda x: isinstance(x, (int, float))).all(1)
         return desc
 
-    def _test_code(self): ## not working used for testing
-        res = []
-
-        x = pd.Series()
-        s = ' '
-
-        for col in df.columns.values:
-            s = df[col]
-            tot = 0
-            na = 0
-
-            isalpha = False
-
-            if type(s) is object:
-                z = s.str.isnumeric()
-                #isalpha = 
-
-            for val in s:
-                if val == '':
-                    na += 1
-                else:
-                    if type(val) is not np.int64 and not val.isdigit():
-                        isalpha = True
-                tot += 1
-
-            res.append([col, na, tot])
-
-
-        with open('describe.txt', 'w') as f:
-            f.write('Variable              Blanks     Total    %Blank\n')
-            for r in res:
-                pct_blank = (float(r[1])/float(r[2])) * 100.0
-                f.write('{0:20s}   {1:5d}   {2:7d}    {3:3.1f}  {4}\n'.format(r[0], r[1], r[2], pct_blank, isalpha))
-
-        #print(res)
-        df[1][3] = None
-        #df.fillna('None')
-        #df.replace([''], [None])
-        print(df.head())
-        #c = df.count()
-        #print(c)
-        #x = np.count_nonzero(df.isnull().values)
-        #with open('describe.txt', 'w') as f:
-        #    f.write(df.describe().__str__())
-        #print(df.describe())
-        return
-
 
     def get_cols(self, desc):
-        # only select fields where the 25th percentile and the 75th are different and at lease 50% of the fields have values. 
+        """ get_cols(desc)
+            params: desc - panda dataframe .describe)_ results returned rom describe_data()
+            returns: list of colums
+
+            Called from test_models()
+            only select fields where the 25th percentile and the 75th are different and at lease 50% of the fields have values. 
+        """
+
         # Exclude the following fields because they have no clinical significance or they are text data. May need to code these values.
         # exclude srv_time_mon from this section since it is the variable we are testing for.
-        exclude = ['SRV_TIME_MON', 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 'SEQ_NUM']
+        exclude = ['SRV_TIME_MON', 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 'SEQ_NUM', 'SS_SURG', 'SURGPRIM', 'HIST_SSG_2000']
         cols = []
         for field in desc:
             x = desc[field]['count']
@@ -124,17 +93,34 @@ class ReadSeer(MasterSeer):
                 cols.append(field)
         return cols
 
-    def test_bayes(self, cols, source = 'BREAST'):
+
+    def test_models(self, 
+                    source = 'BREAST', 
+                    styles = [MultinomialNB, GaussianNB, BernoulliNB, LinearRegression], 
+                    style_names = ['MultinomialNB', 'GaussianNB', 'BernoulliNB', 'LinearRegression']):
+
+        """ test_models(source = 'BREAST'):
+            params:  source - table name in seer database, defaults to 'breast'
+                     styles - list of classes to use to test the data i.e. [LinearRegression, LogisticRegression]
+                              if styles is left empty, default routines in function will be used.
+                              make sure to import modules containing the routines to test
+                                i.e. from sklearn.linear_model import LinearRegression, LogisticRegression
+                     style_names - list of strings describing classes to test i.e. ['LinearRegression', 'LogisticRegression']
+                     
+            returns: n/a
+
+            test various models against a combination of features, save scores to excel file named: source+'_seer_models.xlsx'
+        """
+
         # name of excel file to dump results
-        xls_name = source + '_seer_bayes.xlsx'
+        xls_name = source + '_seer_models.xlsx'
         # variable to predict
         dependent = 'SRV_TIME_MON'
-        # number of records to pull from db, later separated into test/train sets
-        records = 1000
 
-        # bayes routines to test
-        styles = [MultinomialNB, GaussianNB, BernoulliNB]
-        style_names = ['MultinomialNB', 'GaussianNB', 'BernoulliNB']
+        # get description of all fields
+        desc = seer.describe_data(source)
+        # select fields to test based on distribution and number of empty values
+        cols = seer.get_cols(desc)
 
         # pull relevent fields from database using random rows.
         delimList = ','.join(map(str, cols)) 
@@ -144,13 +130,19 @@ class ReadSeer(MasterSeer):
                                 AND EOD10_SZ BETWEEN 1 AND 100 \
                                 AND SRV_TIME_MON BETWEEN 1 AND 1000 \
                                 ORDER BY RANDOM() \
-                                LIMIT {3}".format(delimList, dependent, source, records), self.db_conn)
-
-        #self.find_clfs(df)
-        #return
+                                LIMIT {3}".format(delimList, dependent, source, self.sample_size), self.db_conn)
 
         # split data frame into train and test sets (80/20)
+        df.fillna(0)
         X_train, X_test, y_train, y_test = cross_validation.train_test_split(df, df[dependent].values, test_size=0.2, random_state=0)
+
+        #find_features(df, X_train, y_train)
+        #return
+
+        # drop dependent colum from feature arrays
+        X_train = X_train.drop(dependent, 1)
+        X_test = X_test.drop(dependent, 1)
+
         # test 3 features at a time
         num_var = 3
 
@@ -167,12 +159,13 @@ class ReadSeer(MasterSeer):
             for combo in itertools.combinations(cols, num_var):
                 try: 
                     # train this model
-                    x = X_train[ [k for k in combo[:num_var]] ].values
+                    x = np.array(X_train[ [k for k in combo[:num_var]] ].values)
                     y = y_train
                     model = style_fnc()
                     model.fit(x,y)
+                    #print(model.feature_log_prob_())
                     # now test and score it
-                    x = X_test[ [k for k in combo[:num_var]] ].values
+                    x = np.array(X_test[ [k for k in combo[:num_var]] ].values)
                     y = y_test
                     z = model.score(x, y)
                     res.append([style_names[style], z, [k for k in combo[:num_var]]])
@@ -181,7 +174,8 @@ class ReadSeer(MasterSeer):
                         print("Completed: {0}".format(counter, flush=True), end = '\r')
                 except Exception as err:
                     counter += 1
-                    #print(err)
+                    if self.verbose:
+                        print(err)
 
         # store trial results to excel
         res_df = pd.DataFrame(res)
@@ -190,17 +184,50 @@ class ReadSeer(MasterSeer):
         exc.save()
         print("\nAll Completed: {0}  Results stored in: {1}".format(counter, xls_name))
 
+def find_features(self, X, y, plot = True):
+    """
+        work in progress - not completed
+    """
+    X_indices = np.arange(X.shape[-1])
 
+    col = list(X.columns.values)
+    test = 2
+
+    if test == 1:
+        selector = SelectPercentile(f_classif, percentile=10)
+        selector.fit(np.array(X), y)
+        values = np.nan_to_num(selector.pvalues_)
+    else:
+        model = LinearRegression()
+        model.fit(np.array(X), y)
+        selector = SelectFromModel(f_classif)
+        selector.fit(np.array(X), y)
+
+    values = np.nan_to_num(selector.pvalues_)
+
+    if plot:
+        #scores = -np.log10(values)
+        #scores /= scores.max()
+
+        fig, ax = plt.subplots()
+        #ax.set_xticks(col)
+        ax.set_xticklabels(col, rotation='vertical')
+        ax.set_title(r'Univariate score')
+
+        ax.bar(X_indices - .45, values, width=.2, color='g')
+        plt.show()
+
+    for i, val in enumerate(values):
+        print("{0}  {1:.2f}".format(col[i], val))
+
+    return
 
 
 if __name__ == '__main__':
 
     t0 = time.perf_counter()
 
-    seer = ReadSeer(testMode = True)
-
-    desc = seer.describe_data()
-    cols = seer.get_cols(desc)
-    seer.test_bayes(cols)
+    seer = ReadSeer(sample_size = 1000)
+    seer.test_models()
 
     print('\nReadSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))
