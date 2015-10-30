@@ -153,7 +153,6 @@ class ReadSeer(MasterSeer):
 
             test various models against a combination of features, save scores to excel file named: source+'_seer_models.xlsx'
         """
-
         # name of excel file to dump results
         xls_name = source + '_seer_models.xlsx'
         # variable to predict
@@ -174,7 +173,7 @@ class ReadSeer(MasterSeer):
         counter = 0
         for style in range(len(styles)):
             style_fnc = styles[style]
-            print("Testing: {0}".format(style_names[style]))
+            print("Testing: {0}   ".format(style_names[style]))
             for combo in itertools.combinations(cols, num_var):
                 try: 
                     # train this model
@@ -296,7 +295,7 @@ class ReadSeer(MasterSeer):
 
 
     
-    def cr_val_model(self, model, model_name, features, source='breast', sample_size=5000, num_folds = 5):
+    def cross_val_model(self, model, model_name, features, source='breast', sample_size=5000, num_folds = 5):
         """ cr_val_model(self, model, model_name, source)
             perform cross-validation on a specific model using specified sample size
 
@@ -321,31 +320,40 @@ class ReadSeer(MasterSeer):
         scores = []
         for training, testing in kf:
             # Fit a model for this fold, then apply it to the
-            X = normalize(X[training], axis=1, copy=True)
-            mdl.fit(X, y[training])
+            Xtrn = np.array(X[training]).astype(np.float32)
+            Xtrn = normalize(Xtrn, axis=1, copy=True)
+            mdl.fit(Xtrn, y[training])
 
-            X = normalize(X[testing], axis=1, copy=True)
-            scores.append(mdl.score(X, y[testing]))
-            y_pred_test = mdl.predict(X)
+            Xtst = np.array(X[testing]).astype(np.float32)
+            Xtst = normalize(Xtst, axis=1, copy=True)
+            scores.append(mdl.score(Xtst, y[testing]))
+            y_pred_test = mdl.predict(Xtst)
 
-        print("Mean of scores: {:.1%}".format(np.mean(scores)))
+            # last batch is used for plotting
+            ytst = y[testing]
 
-        # TODO = plot results
-        #plt.plot(xtrnp, ytrnp, 'o', label="data")
-        #plt.plot(xtstp, y_pred_test, 'o', label="prediction")
-        #plt.legend(loc='best')
-        #plt.show()
+        print("Mean of scores: {:.1}".format(np.mean(scores)))
+
+        # plot last batch's results
+        plt.plot([x for x in range(len(y_pred_test))], y_pred_test, 'o', label="prediction")
+        plt.plot([x for x in range(len(y_pred_test))], ytst, 'o', label="data")
+        plt.legend(loc='best')
+        plt.title(model_name)
+        # crop outliers so graph is more meaningful
+        plt.ylim(0, 500)
+        plt.show()
 
 
 
 if __name__ == '__main__':
 
     t0 = time.perf_counter()
+    seer = ReadSeer(sample_size = 500)
 
-    seer = ReadSeer(sample_size = 5000)
-    seer.test_models()
+    # using smaller list for testing
+    #seer.test_models(styles = [LinearRegression, KNeighborsRegressor, Lasso, Ridge], style_names = ['LinearRegression', 'KNeighborsRegressor', 'Lasso', 'Ridge'])
 
-    #seer.cv_model(LinearRegression, 'Linear Regression', ['AGE_DX', 'HISTO2V', 'HST_STGA'])
-    #seer.cv_model(KNeighborsRegressor, 'KNeighborsRegressor', ['DATE_yr', 'ICDOTO9V', 'ICD_5DIG'])
+    # used to cross validate and plot a specific test and features.
+    seer.cross_val_model(KNeighborsRegressor, 'KNeighborsRegressor', ['SEQ_NUM', 'RADIATN', 'FIRSTPRM'])
 
     print('\nReadSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))
