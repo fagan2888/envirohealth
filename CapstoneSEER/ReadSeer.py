@@ -1,26 +1,20 @@
 ﻿import time
-import sqlite3
 import pandas as pd
 import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 from MasterSeer import MasterSeer
-from sklearn.naive_bayes import MultinomialNB, GaussianNB, BaseDiscreteNB, BernoulliNB
 import math
 import itertools
-from sklearn.datasets import make_classification
-from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.metrics import classification_report
 from sklearn.feature_selection import SelectPercentile, f_classif, SelectFromModel
-from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso, Ridge
+from sklearn.linear_model import LinearRegression, Lasso, Ridge
+from sklearn.naive_bayes import MultinomialNB, BernoulliNB
 from sklearn.cross_validation import train_test_split, KFold
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import normalize
 
 class ReadSeer(MasterSeer):
 
-    def __init__(self, path=r'.\data', testMode=False, verbose=True, sample_size=5000):
+    def __init__(self, path=r'./data', testMode=False, verbose=True, sample_size=5000):
 
         # user supplied parameters
         self.testMode = testMode        # import one file, 500 records and return
@@ -30,8 +24,8 @@ class ReadSeer(MasterSeer):
         if type(path) != str:
             raise TypeError('path must be a string')
 
-        if path[-1] != '\\':
-            path += '\\'            # if path does not end with a backslash, add one
+        if path[-1] != '/':
+            path += '/'            # if path does not end with a backslash, add one
 
         self.path = path
 
@@ -44,7 +38,7 @@ class ReadSeer(MasterSeer):
         self.db_conn.close()
 
 
-    def describe_data(self, source = 'BREAST'):
+    def describe_data(self, source = 'breast'):
         """ describe_data(source)
             params: source - table name in seer database, defaults to 'breast'
             returns: panda.DataFrame.describe() data
@@ -55,9 +49,9 @@ class ReadSeer(MasterSeer):
         xls_name = source + '_seer_describe.xlsx'
 
         if self.testMode:
-            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 LIMIT 500".format(source), self.db_conn)  # speed up testing
+            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 ORDER BY RANDOM() LIMIT 500".format(source), self.db_conn)  # speed up testing
         else:
-            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 LIMIT {1}".format(source, self.sample_size), self.db_conn)  # speed up testing
+            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 ORDER BY RANDOM() LIMIT {1}".format(source, self.sample_size), self.db_conn)  # speed up testing
 
 
         desc = df.describe(include='all')
@@ -348,12 +342,12 @@ class ReadSeer(MasterSeer):
 if __name__ == '__main__':
 
     t0 = time.perf_counter()
-    seer = ReadSeer(sample_size = 500)
+    seer = ReadSeer(sample_size = 5000)
 
     # using smaller list for testing
-    #seer.test_models(styles = [LinearRegression, KNeighborsRegressor, Lasso, Ridge], style_names = ['LinearRegression', 'KNeighborsRegressor', 'Lasso', 'Ridge'])
+    seer.test_models(styles = [LinearRegression, KNeighborsRegressor, Lasso, Ridge], style_names = ['LinearRegression', 'KNeighborsRegressor', 'Lasso', 'Ridge'])
 
     # used to cross validate and plot a specific test and features.
-    seer.cross_val_model(KNeighborsRegressor, 'KNeighborsRegressor', ['SEQ_NUM', 'RADIATN', 'FIRSTPRM'])
+    seer.cross_val_model(KNeighborsRegressor, 'KNeighborsRegressor', ['YR_BRTH', 'LATERAL', 'TYPEFUP'])
 
     print('\nReadSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))

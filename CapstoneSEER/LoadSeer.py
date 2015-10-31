@@ -22,7 +22,7 @@ from MasterSeer import MasterSeer
 
 class LoadSeerData(MasterSeer):
 
-    def __init__(self, path=r'.\data', reload=True, testMode=False, verbose=True, batch=10000):
+    def __init__(self, path=r'./data', reload=True, testMode=False, verbose=True, batch=10000):
 
         # user supplied parameters
         self.reload = reload        # deletes and recreates db before start of loading data.
@@ -33,8 +33,8 @@ class LoadSeerData(MasterSeer):
         if type(path) != str:
             raise TypeError('path must be a string')
 
-        if path[-1] != '\\':
-            path += '\\'            # if path does not end with a backslash, add one
+        if path[-1] != '/':
+            path += '/'            # if path does not end with a backslash, add one
 
         self.path = path
 

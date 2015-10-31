@@ -12,7 +12,7 @@ class MasterSeer(object):
     # database file name on disk
     DB_NAME = 'seer.db'
 
-    def __init__(self, path = r'.\data', reload = True, testMode = False, verbose = True, batch = 5000):
+    def __init__(self, path = r'./data', reload = True, testMode = False, verbose = True, batch = 5000):
         self.path = path
 
         # List to hold lists of [Column Offset, Column Name, Column Length]
