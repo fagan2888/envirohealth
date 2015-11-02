@@ -10,7 +10,7 @@ from sklearn.linear_model import LinearRegression, Lasso, Ridge
 from sklearn.naive_bayes import MultinomialNB, BernoulliNB
 from sklearn.cross_validation import train_test_split, KFold
 from sklearn.neighbors import KNeighborsRegressor
-from sklearn.preprocessing import normalize
+from sklearn import preprocessing
 
 class ReadSeer(MasterSeer):
 
@@ -53,7 +53,6 @@ class ReadSeer(MasterSeer):
         else:
             df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 ORDER BY RANDOM() LIMIT {1}".format(source, self.sample_size), self.db_conn)  # speed up testing
 
-
         desc = df.describe(include='all')
         exc = pd.ExcelWriter(xls_name)
         desc.to_excel(exc)
@@ -73,12 +72,14 @@ class ReadSeer(MasterSeer):
 
         # Exclude the following fields because they have no clinical significance or they are text data. May need to code these values.
         # exclude srv_time_mon from this section since it is the variable we are testing for.
-        exclude = ['SRV_TIME_MON', 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 'SS_SURG', 'SURGPRIM', 'HIST_SSG_2000', 'ICD_5DIG']
+        exclude = ['SRV_TIME_MON', 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 
+                   'SRV_TIME_MON_FLAG', 'SRV_TIME_MON_FLAG_PA', 'SS_SURG', 'SURGPRIM', 'HIST_SSG_2000', 'ICD_5DIG']
         cols = []
         for field in desc:
             x = desc[field]['count']
             if desc[field]['count'] > desc['CASENUM']['count'] / 2 and \
-               desc[field]['25%'] != desc[field]['75%'] and \
+               desc[field]['min'] != desc[field]['75%'] and \
+               desc[field]['25%'] != desc[field]['max'] and \
                field not in exclude:
                 cols.append(field)
         return cols
@@ -110,7 +111,7 @@ class ReadSeer(MasterSeer):
                                 ORDER BY RANDOM() \
                                 LIMIT {3}".format(delimList, dependent, source, self.sample_size), self.db_conn)
 
-        self.clean_recode_data(df)
+        df = self.clean_recode_data(df)
 
         # split data frame into train and test sets (80/20)
         if return_all:
@@ -127,13 +128,14 @@ class ReadSeer(MasterSeer):
         X_train = X_train.drop(dependent, 1)
         X_test = X_test.drop(dependent, 1)
 
-        return X_train, X_test, y_train, y_test, cols
+        return X_train, X_test, y_train, y_test, X_train.columns
 
 
     def test_models(self, 
                     source = 'BREAST', 
                     styles = [MultinomialNB, BernoulliNB, LinearRegression, KNeighborsRegressor, Lasso, Ridge], 
-                    style_names = ['MultinomialNB', 'BernoulliNB', 'LinearRegression', 'KNeighborsRegressor', 'Lasso', 'Ridge']):
+                    style_names = ['MultinomialNB', 'BernoulliNB', 'LinearRegression', 'KNeighborsRegressor', 'Lasso', 'Ridge'],
+                    num_features = 3):
 
         """ test_models(source = 'BREAST'):
             params:  source - table name in seer database, defaults to 'breast'
@@ -142,6 +144,7 @@ class ReadSeer(MasterSeer):
                               make sure to import modules containing the routines to test
                                 i.e. from sklearn.linear_model import LinearRegression, LogisticRegression
                      style_names - list of strings describing classes to test i.e. ['LinearRegression', 'LogisticRegression']
+                     num_features - number of features to test at one time, set to 99 to test all features in one run.
                      
             returns: n/a
 
@@ -154,13 +157,13 @@ class ReadSeer(MasterSeer):
 
         # get sets to train and test (80/20 split)
         X_train, X_test, y_train, y_test, cols = self.prepare_test_train_sets(source, dependent, test_pct = .20)
-
-        # test 3 features at a time
-        num_var = 3
-
         col_cnt = len(cols)
+
+        # make sure features to test is not greater than number of columns
+        num_features = min(num_features, col_cnt)
+        
         # formula for number of combinations: nCr = n! / r! (n - r)! 
-        tot_cnt = (math.factorial(col_cnt) / (math.factorial(num_var) * math.factorial(col_cnt - num_var))) * len(styles)
+        tot_cnt = (math.factorial(col_cnt) / (math.factorial(num_features) * math.factorial(col_cnt - num_features))) * len(styles)
         print("Processing: {0} tests.".format(int(tot_cnt)))
 
         res = []
@@ -168,28 +171,28 @@ class ReadSeer(MasterSeer):
         for style in range(len(styles)):
             style_fnc = styles[style]
             print("Testing: {0}   ".format(style_names[style]))
-            for combo in itertools.combinations(cols, num_var):
+            for combo in itertools.combinations(cols, num_features):
                 try: 
                     # train this model
-                    x = np.array(X_train[ [k for k in combo[:num_var]] ].values).astype(np.float32)
-                    X = normalize(x, axis=1, copy=True)
+                    x = np.array(X_train[ [k for k in combo[:num_features]] ].values).astype(np.float32)
+                    X = preprocessing.scale(x)
                     y = y_train
                     model = style_fnc()
                     model.fit(X, y)
                     #print(model.feature_log_prob_())
                     # now test and score it
-                    x = np.array(X_test[ [k for k in combo[:num_var]] ].values).astype(np.float32)
-                    X = normalize(x, axis=1, copy=True)
+                    x = np.array(X_test[ [k for k in combo[:num_features]] ].values).astype(np.float32)
+                    X = preprocessing.scale(x)
                     y = y_test
                     z = model.score(X, y)
-                    res.append([z, style_names[style], [k for k in combo[:num_var]]])
+                    res.append([z, style_names[style], [k for k in combo[:num_features]]])
                     counter += 1
                     if counter % 100 == 0:
                         print("Completed: {0}".format(counter, flush=True), end = '\r')
                 except Exception as err:
                     counter += 1
-                    #if self.verbose:
-                    #    print(err)
+                    if self.verbose:
+                        print(err)
 
         # store trial results to excel
         res = sorted(res, reverse=True)
@@ -203,7 +206,6 @@ class ReadSeer(MasterSeer):
         #self.cv_model(KNeighborsRegressor, 'KNeighborsRegressor', ['DATE_yr', 'ICDOTO9V', 'ICD_5DIG'])
 
         print("\nAll Completed: {0}  Results stored in: {1}".format(counter, xls_name))
-
 
 
     def clean_recode_data(self, df):
@@ -243,10 +245,47 @@ class ReadSeer(MasterSeer):
             df = df[df.EOD10_PN < 95] 
         except: 
             pass
+        try:
+            df.RADIATN = df.RADIATN.replace(7, 0)
+            df = df[df.RADIATN < 7] 
+        except Exception as err:
+            pass
 
+        try: 
+            # remove unknown or not performed. reorder 0-neg, 1-borderline, 2-pos
+            df = df[df.TUMOR_1V in [1,2,3]]
+            df.TUMOR_1V = df.TUMOR_1V.replace(2, 0)
+            df.TUMOR_1V = df.TUMOR_1V.replace(1, 2)
+            df.TUMOR_1V = df.TUMOR_1V.replace(3, 1)
+        except: 
+            pass
+
+        try:
+            df.TUMOR_2V = df.TUMOR_2V.replace(7, 0)
+            df = df[df.RADIATN < 7] 
+        except Exception as err:
+            pass
+
+        # categorical columns to one hot encode
+        cat_cols_to_encode=['RACE', 'ORIGIN', 'SEX', 'TUMOR_2V']
+        df = self.one_hot_data(df, cat_cols_to_encode)
+
+        df.replace([np.inf, -np.inf], np.nan)
         df = df.fillna(0)
+        #print(df.head())
         return df
 
+
+    def one_hot_data(self, data, cols):
+        """ Takes a dataframe and a list of columns that need to be encoded.
+            Returns a new dataframe with the one hot encoded vectorized data
+            
+            See the following for explanation: 
+                http://stackoverflow.com/questions/17469835/one-hot-encoding-for-machine-learning
+            """
+        # check to only encode columns that are in the data
+        col_to_process = [c for c in cols if c in data]
+        return pd.get_dummies(data, columns = col_to_process,  prefix = col_to_process)
 
 
     def find_features(self, X, y, plot = True):
@@ -315,11 +354,11 @@ class ReadSeer(MasterSeer):
         for training, testing in kf:
             # Fit a model for this fold, then apply it to the
             Xtrn = np.array(X[training]).astype(np.float32)
-            Xtrn = normalize(Xtrn, axis=1, copy=True)
+            Xtrn = preprocessing.scale(Xtrn)
             mdl.fit(Xtrn, y[training])
 
             Xtst = np.array(X[testing]).astype(np.float32)
-            Xtst = normalize(Xtst, axis=1, copy=True)
+            Xtst = preprocessing.scale(Xtst)
             scores.append(mdl.score(Xtst, y[testing]))
             y_pred_test = mdl.predict(Xtst)
 
@@ -348,6 +387,6 @@ if __name__ == '__main__':
     seer.test_models(styles = [LinearRegression, KNeighborsRegressor, Lasso, Ridge], style_names = ['LinearRegression', 'KNeighborsRegressor', 'Lasso', 'Ridge'])
 
     # used to cross validate and plot a specific test and features.
-    seer.cross_val_model(KNeighborsRegressor, 'KNeighborsRegressor', ['YR_BRTH', 'LATERAL', 'TYPEFUP'])
+    #seer.cross_val_model(KNeighborsRegressor, 'KNeighborsRegressor', ['LATERAL', 'RADIATN', 'PRSTATUS'])
 
     print('\nReadSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))
