@@ -10,11 +10,12 @@ from sklearn.linear_model import LinearRegression, Lasso, Ridge
 from sklearn.naive_bayes import MultinomialNB, BernoulliNB
 from sklearn.cross_validation import train_test_split, KFold
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.ensemble import RandomForestClassifier
 from sklearn import preprocessing
 
 class ReadSeer(MasterSeer):
 
-    def __init__(self, path=r'./data', testMode=False, verbose=True, sample_size=5000):
+    def __init__(self, path=r'./data/', testMode=False, verbose=True, sample_size=5000):
 
         # user supplied parameters
         self.testMode = testMode        # import one file, 500 records and return
@@ -41,7 +42,7 @@ class ReadSeer(MasterSeer):
     def describe_data(self, source = 'breast'):
         """ describe_data(source)
             params: source - table name in seer database, defaults to 'breast'
-            returns: panda.DataFrame.describe() data
+            returns: panda.DataFrame.describe() data and the dataframe
 
             Called from prepare_test_train_sets()
             the describe data is stored in an excel file. 
@@ -58,7 +59,8 @@ class ReadSeer(MasterSeer):
         desc.to_excel(exc)
         exc.save()
         print("Data description saved to {0}".format(xls_name))
-        return desc
+
+        return desc, df
 
 
     def get_cols(self, desc):
@@ -99,7 +101,7 @@ class ReadSeer(MasterSeer):
         """
 
         # get description of all fields
-        desc = seer.describe_data(source)
+        desc,_ = seer.describe_data(source)
         # select fields to test based on distribution and number of empty values
         if not cols:
             cols = seer.get_cols(desc)
@@ -132,7 +134,7 @@ class ReadSeer(MasterSeer):
 
 
     def test_models(self, 
-                    source = 'BREAST', 
+                    source = 'breast', 
                     styles = [MultinomialNB, BernoulliNB, LinearRegression, KNeighborsRegressor, Lasso, Ridge], 
                     style_names = ['MultinomialNB', 'BernoulliNB', 'LinearRegression', 'KNeighborsRegressor', 'Lasso', 'Ridge'],
                     num_features = 3):
@@ -272,7 +274,10 @@ class ReadSeer(MasterSeer):
 
         df.replace([np.inf, -np.inf], np.nan)
         df = df.fillna(0)
-        #print(df.head())
+
+        # this code will add a new column for SRV_TIME_MON decile in case we want to use this as the dependent variable
+        #df['SRV_DECILE'] = pd.qcut(df['SRV_TIME_MON'], 10, labels=False)
+
         return df
 
 
@@ -327,7 +332,6 @@ class ReadSeer(MasterSeer):
         return
 
 
-    
     def cross_val_model(self, model, model_name, features, source='breast', sample_size=5000, num_folds = 5):
         """ cr_val_model(self, model, model_name, source)
             perform cross-validation on a specific model using specified sample size
@@ -377,16 +381,35 @@ class ReadSeer(MasterSeer):
         plt.show()
 
 
+    def show_hist(self, df, cols):
+        for col in cols:
+            df.hist(col)
+        plt.show()
+
 
 if __name__ == '__main__':
 
     t0 = time.perf_counter()
-    seer = ReadSeer(sample_size = 5000)
 
-    # using smaller list for testing
-    seer.test_models(styles = [LinearRegression, KNeighborsRegressor, Lasso, Ridge], style_names = ['LinearRegression', 'KNeighborsRegressor', 'Lasso', 'Ridge'])
+    seer = ReadSeer(sample_size = 5000)
+    
+    ################ 
+
+    # these three lines are used to display a histogram for the slected columns
+    #_, df = seer.describe_data()
+    #df = df[df.SRV_TIME_MON <= 360] 
+    #seer.show_hist(df, ['SRV_TIME_MON'])
+
+    ################ 
+
+    # this line will run the selcted models
+    seer.test_models(styles = [RandomForestClassifier, KNeighborsRegressor, Lasso, Ridge], style_names = ['RandomForestClassifier', 'KNeighborsRegressor', 'Lasso', 'Ridge'], num_features=99)
+
+    ################ 
 
     # used to cross validate and plot a specific test and features.
     #seer.cross_val_model(KNeighborsRegressor, 'KNeighborsRegressor', ['LATERAL', 'RADIATN', 'PRSTATUS'])
+
+    ################ 
 
     print('\nReadSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))
