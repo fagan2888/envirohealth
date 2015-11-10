@@ -10,10 +10,8 @@
 # regex to read data dictionary
 # \s+@\s+([0-9]+)\s+([A-Z0-9_]*)\s+[$a-z]+([0-9]+)\.\s+/\* (.+?(?= \*/))
 
-import re
 import time
 import os
-import sqlite3
 import glob
 import pandas as pd
 from pandas.io import sql
@@ -44,13 +42,19 @@ class LoadSeerData(MasterSeer):
 
         # TODO
         #if !self.db_conn or !self.db_cur:
+
+    def __del__(self):
+        self.db_conn.close()
             
 
-    # supports specific file or wildcard filename to import all data in one
-    # call.
-    # path specified is off of the path sent in the constructor so actual
-    # filename will be self.path + fname
     def load_data(self, fname=r'incidence\yr1973_2012.seer9\breast.txt'):
+        ''' loads the SEER raw data into sqlite3 databae
+            params: fname - relative path to SEER data, can use wildcards to load multiple files.
+
+            supports specific file or wildcard filename to import all data in one call.
+            path specified is off of the path sent in the constructor so actual
+            filename will be self.path + fname
+        '''
         try:
             self.dfDataDict = super().load_data_dictionary()
         except Exception as e:
@@ -71,6 +75,12 @@ class LoadSeerData(MasterSeer):
 
 
     def load_one_file(self, fname):
+        ''' function to perform the sql inserts into the sqlite database
+            called from load_data()
+            params: fname - name of individual SEER datfile to import
+            returns: number of rows inserted
+        '''
+
         if self.verbose:
             print('\nStart Loading Data: {0}'.format(fname))
 
@@ -108,8 +118,9 @@ class LoadSeerData(MasterSeer):
 
 
     def create_table(self, tblName):
-        # Create the table from the fields read from data dictionary and stored in self.dataDictInfo
-        # Make list comma delimited
+        ''' Create the table from the fields read from data dictionary and stored in self.dataDictInfo
+            Make list comma delimited
+        '''
 
         fieldList = self.dfDataDict.FIELD_NAME
         delimList = ','.join(map(str, fieldList)) 
@@ -135,5 +146,4 @@ if __name__ == '__main__':
 
     #seer = LoadSeerData(testMode = False)
     
-
     print('\nModule Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))

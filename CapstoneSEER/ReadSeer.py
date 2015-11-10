@@ -7,9 +7,9 @@ import math
 import itertools
 from sklearn.feature_selection import SelectPercentile, f_classif, SelectFromModel
 from sklearn.linear_model import LinearRegression, Lasso, Ridge
-from sklearn.naive_bayes import MultinomialNB, BernoulliNB
+from sklearn.naive_bayes import MultinomialNB, BernoulliNB, GaussianNB
 from sklearn.cross_validation import train_test_split, KFold
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import preprocessing
 
@@ -136,7 +136,6 @@ class ReadSeer(MasterSeer):
     def test_models(self, 
                     source = 'breast', 
                     styles = [MultinomialNB, BernoulliNB, LinearRegression, KNeighborsRegressor, Lasso, Ridge], 
-                    style_names = ['MultinomialNB', 'BernoulliNB', 'LinearRegression', 'KNeighborsRegressor', 'Lasso', 'Ridge'],
                     num_features = 3):
 
         """ test_models(source = 'BREAST'):
@@ -145,7 +144,6 @@ class ReadSeer(MasterSeer):
                               if styles is left empty, default routines in function will be used.
                               make sure to import modules containing the routines to test
                                 i.e. from sklearn.linear_model import LinearRegression, LogisticRegression
-                     style_names - list of strings describing classes to test i.e. ['LinearRegression', 'LogisticRegression']
                      num_features - number of features to test at one time, set to 99 to test all features in one run.
                      
             returns: n/a
@@ -172,22 +170,24 @@ class ReadSeer(MasterSeer):
         counter = 0
         for style in range(len(styles)):
             style_fnc = styles[style]
-            print("Testing: {0}   ".format(style_names[style]))
+            print("Testing: {0}   ".format(style_fnc.__name__))
             for combo in itertools.combinations(cols, num_features):
                 try: 
                     # train this model
-                    x = np.array(X_train[ [k for k in combo[:num_features]] ].values).astype(np.float32)
-                    X = preprocessing.scale(x)
+                    X = np.array(X_train[ [k for k in combo[:num_features]] ].values).astype(np.float32)
+                    # scale data if model requires it
+                    #X = preprocessing.scale(x)
                     y = y_train
                     model = style_fnc()
                     model.fit(X, y)
                     #print(model.feature_log_prob_())
                     # now test and score it
-                    x = np.array(X_test[ [k for k in combo[:num_features]] ].values).astype(np.float32)
-                    X = preprocessing.scale(x)
+                    X = np.array(X_test[ [k for k in combo[:num_features]] ].values).astype(np.float32)
+                    # scale data if model requires it
+                    #X = preprocessing.scale(x)
                     y = y_test
                     z = model.score(X, y)
-                    res.append([z, style_names[style], [k for k in combo[:num_features]]])
+                    res.append([z, style_fnc.__name__, [k for k in combo[:num_features]]])
                     counter += 1
                     if counter % 100 == 0:
                         print("Completed: {0}".format(counter, flush=True), end = '\r')
@@ -225,51 +225,103 @@ class ReadSeer(MasterSeer):
         # drop all rows that have invalid or missing data
         try: 
             df = df.dropna(subset = ['YR_BRTH']) # add column names here as needed
+        except Exception as err:
+            pass
+
+        try:
+            df.LATERAL = df.LATERAL.replace([0, 1,2,3], 1)  # one site = 1
+            df.LATERAL = df.LATERAL.replace([4,5,9], 2)     # paired = 2
         except: 
             pass
+
+        try:
+            # 0-benign, 1-borderline, 2-in situ, 3-malignant
+            df = df[df.BEHANAL != 5]
+            df.BEHANAL = df.BEHANAL.replace([3,4,6], 3)
+        except:
+            pass
+
         try: 
-            df = df[df.AGE_DX != 999] 
+            df = df[df.HST_STGA != 8]
+            df = df[df.HST_STGA != 9]
         except: 
             pass
+
         try: 
-            df = df[df.SEQ_NUM != 88] 
-        except: 
+            # 0-negative, 1-borderline,, 2-positive
+            df = df[df.ERSTATUS != 4]
+            df = df[df.ERSTATUS != 9]
+            df.ERSTATUS = df.ERSTATUS.replace(2, 0)
+            df.ERSTATUS = df.ERSTATUS.replace(1, 2)
+            df.ERSTATUS = df.ERSTATUS.replace(3, 1)
+        except:
             pass
+
         try: 
-            df = df[df.GRADE != 9] 
-        except: 
+            # 0-negative, 1-borderline,, 2-positive
+            df = df[df.PRSTATUS != 4]
+            df = df[df.PRSTATUS != 9]
+            df.PRSTATUS = df.PRSTATUS.replace(2, 0)
+            df.PRSTATUS = df.PRSTATUS.replace(1, 2)
+            df.PRSTATUS = df.PRSTATUS.replace(3, 1)
+        except:
             pass
-        try: 
-            df = df[df.EOD10_SZ != 999] 
-        except: 
-            pass
-        try: 
-            df = df[df.EOD10_PN < 95] 
-        except: 
-            pass
+
         try:
             df.RADIATN = df.RADIATN.replace(7, 0)
             df = df[df.RADIATN < 7] 
         except Exception as err:
             pass
 
-        try: 
-            # remove unknown or not performed. reorder 0-neg, 1-borderline, 2-pos
-            df = df[df.TUMOR_1V in [1,2,3]]
-            df.TUMOR_1V = df.TUMOR_1V.replace(2, 0)
-            df.TUMOR_1V = df.TUMOR_1V.replace(1, 2)
-            df.TUMOR_1V = df.TUMOR_1V.replace(3, 1)
-        except: 
-            pass
-
         try:
-            df.TUMOR_2V = df.TUMOR_2V.replace(7, 0)
-            df = df[df.RADIATN < 7] 
+            df.NUMPRIMS = df.NUMPRIMS.replace(range(2,37), 1)
         except Exception as err:
             pass
 
+
+
+        
+
+
+
+        #try: 
+        #    df = df[df.AGE_DX != 999] 
+        #except: 
+        #    pass
+        #try: 
+        #    df = df[df.SEQ_NUM != 88] 
+        #except: 
+        #    pass
+        #try: 
+        #    df = df[df.GRADE != 9] 
+        #except: 
+        #    pass
+        #try: 
+        #    df = df[df.EOD10_SZ != 999] 
+        #except: 
+        #    pass
+        #try: 
+        #    df = df[df.EOD10_PN < 95] 
+        #except: 
+        #    pass
+
+        #try: 
+        #    # remove unknown or not performed. reorder 0-neg, 1-borderline, 2-pos
+        #    df = df[df.TUMOR_1V in [1,2,3]]
+        #    df.TUMOR_1V = df.TUMOR_1V.replace(2, 0)
+        #    df.TUMOR_1V = df.TUMOR_1V.replace(1, 2)
+        #    df.TUMOR_1V = df.TUMOR_1V.replace(3, 1)
+        #except: 
+        #    pass
+
+        #try:
+        #    df.TUMOR_2V = df.TUMOR_2V.replace(7, 0)
+        #    df = df[df.RADIATN < 7] 
+        #except Exception as err:
+        #    pass
+
         # categorical columns to one hot encode
-        cat_cols_to_encode=['RACE', 'ORIGIN', 'SEX', 'TUMOR_2V']
+        cat_cols_to_encode=['RACE', 'ORIGIN', 'SEX', 'TUMOR_2V', 'HISTREC']
         df = self.one_hot_data(df, cat_cols_to_encode)
 
         df.replace([np.inf, -np.inf], np.nan)
@@ -332,37 +384,39 @@ class ReadSeer(MasterSeer):
         return
 
 
-    def cross_val_model(self, model, model_name, features, source='breast', sample_size=5000, num_folds = 5):
+    def cross_val_model(self, model, features, source='breast', sample_size=5000, num_folds = 5):
         """ cr_val_model(self, model, model_name, source)
             perform cross-validation on a specific model using specified sample size
 
             params: model - scikit-learn model function
-                    model_name - string of model name
                     features = list of features(fields) to use for model
                     source - table name in seer database, defaults to 'breast'
                     num_folds - number of folds for cross validation
         """
         
         mdl = model()
+        model_name = model.__name__
 
         # variable to predict
         dependent = 'SRV_TIME_MON'
 
         # get all of the data, we will split to test/train using scikit's KFold routine
         X, y = self.prepare_test_train_sets(source, dependent, return_all=True, cols = features)
-        X = np.array(X)
+        X = np.array(X, dtype=np.float16)
 
         kf = KFold(len(X), n_folds=num_folds, shuffle=True)
         # `means` will be a list of mean accuracies (one entry per fold)
         scores = []
         for training, testing in kf:
             # Fit a model for this fold, then apply it to the
-            Xtrn = np.array(X[training]).astype(np.float32)
-            Xtrn = preprocessing.scale(Xtrn)
+            Xtrn = X[training]
+            #min_max_scaler = preprocessing.MinMaxScaler()
+            #X_train_minmax = min_max_scaler.fit_transform(Xtrn)
             mdl.fit(Xtrn, y[training])
 
-            Xtst = np.array(X[testing]).astype(np.float32)
-            Xtst = preprocessing.scale(Xtst)
+            Xtst = X[testing]
+            #min_max_scaler = preprocessing.MinMaxScaler()
+            #Xtst = min_max_scaler.fit_transform(Xtst)
             scores.append(mdl.score(Xtst, y[testing]))
             y_pred_test = mdl.predict(Xtst)
 
@@ -371,9 +425,13 @@ class ReadSeer(MasterSeer):
 
         print("Mean of scores: {:.1}".format(np.mean(scores)))
 
+        # sort the y test data and keep the y_pred_test array in sync 
+        # sort to make the graph more informative
+        ytst, y_pred_test = zip(*sorted(zip(ytst, y_pred_test)))
+
         # plot last batch's results
-        plt.plot([x for x in range(len(y_pred_test))], y_pred_test, 'o', label="prediction")
-        plt.plot([x for x in range(len(y_pred_test))], ytst, 'o', label="data")
+        plt.plot([x for x in range(len(ytst))], y_pred_test, 'o', label="prediction")
+        plt.plot([x for x in range(len(ytst))], ytst, 'o', label="data")
         plt.legend(loc='best')
         plt.title(model_name)
         # crop outliers so graph is more meaningful
@@ -403,12 +461,12 @@ if __name__ == '__main__':
     ################ 
 
     # this line will run the selcted models
-    seer.test_models(styles = [RandomForestClassifier, KNeighborsRegressor, Lasso, Ridge], style_names = ['RandomForestClassifier', 'KNeighborsRegressor', 'Lasso', 'Ridge'], num_features=99)
+    #seer.test_models(styles = [RandomForestClassifier, KNeighborsRegressor, Lasso, Ridge], num_features=99)
 
     ################ 
 
     # used to cross validate and plot a specific test and features.
-    #seer.cross_val_model(KNeighborsRegressor, 'KNeighborsRegressor', ['LATERAL', 'RADIATN', 'PRSTATUS'])
+    seer.cross_val_model(KNeighborsRegressor, ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'])
 
     ################ 
 

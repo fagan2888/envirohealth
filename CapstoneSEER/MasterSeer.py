@@ -2,12 +2,12 @@
 import time
 import os
 import sqlite3
-import glob
 import pandas as pd
 
 
 class MasterSeer(object):
-    """description of class"""
+    ''' Master SEER database class that manages connection and loads raw data into sqlite3 database
+    '''
 
     # database file name on disk
     DB_NAME = 'seer.db'
@@ -21,6 +21,12 @@ class MasterSeer(object):
         self.db_cur = None
 
     def init_database(self, reload):
+        ''' creates a database connection and cursor to sqlite3 database.
+
+            params: reload - if True, deletes all data and creates a new empty database
+                           - if False, opens existing db with data
+            returns: database connection and database cursor
+        '''
         try:
             if reload:
                 os.remove(self.path + self.DB_NAME)
@@ -43,6 +49,11 @@ class MasterSeer(object):
 
 
     def load_data_dictionary(self, fname = r'SeerDataDict.txt'):
+        ''' loads the data dictionary describing the raw SEER flat file data
+            params: fname - the name of the tab delimited file containing the column definitions.
+
+            returns: dataframe of data dictionary from tab delimited file
+        '''
         
         REGEX_DD = '\$char([0-9]+).'
 
