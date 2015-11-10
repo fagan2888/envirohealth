@@ -274,15 +274,10 @@ class ReadSeer(MasterSeer):
             pass
 
         try:
-            df.NUMPRIMS = df.NUMPRIMS.replace(range(2,37), 1)
+            # code as 1 or 2-more than one
+            df.NUMPRIMS = df.NUMPRIMS.replace([x for x in range(2,37)], 2)
         except Exception as err:
             pass
-
-
-
-        
-
-
 
         #try: 
         #    df = df[df.AGE_DX != 999] 
