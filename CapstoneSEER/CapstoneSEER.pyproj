@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>02c6287d-40ae-47c6-b01b-b495b7bf8434</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>ReadSeer.py</StartupFile>
+    <StartupFile>ModelSeer.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -22,12 +22,15 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ExploreSeer.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="LoadSeer.py" />
     <Compile Include="CapstoneSEERtest.py" />
     <Compile Include="MasterSeer.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ReadSeer.py">
+    <Compile Include="ModelSeer.py">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>

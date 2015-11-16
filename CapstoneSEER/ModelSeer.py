@@ -12,15 +12,17 @@ from sklearn.cross_validation import train_test_split, KFold
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import preprocessing
+from sklearn.metrics import classification_report, f1_score, accuracy_score, precision_score, recall_score, precision_recall_fscore_support
 
-class ReadSeer(MasterSeer):
+class ModelSeer(MasterSeer):
 
-    def __init__(self, path=r'./data/', testMode=False, verbose=True, sample_size=5000):
+    def __init__(self, path=r'./data/', testMode=False, verbose=True, sample_size=5000, where="DATE_yr < 2008"):
 
         # user supplied parameters
         self.testMode = testMode        # import one file, 500 records and return
         self.verbose = verbose          # prints status messages
         self.sample_size = sample_size  # number of rows to pull for testing
+        self.where = where              # filter for SQL load of data
 
         if type(path) != str:
             raise TypeError('path must be a string')
@@ -36,95 +38,35 @@ class ReadSeer(MasterSeer):
 
 
     def __del__(self):
-        self.db_conn.close()
+        super().__del__()
 
 
-    def describe_data(self, source = 'breast'):
-        """ describe_data(source)
-            params: source - table name in seer database, defaults to 'breast'
-            returns: panda.DataFrame.describe() data and the dataframe
-
-            Called from prepare_test_train_sets()
-            the describe data is stored in an excel file. 
-        """
-        xls_name = source + '_seer_describe.xlsx'
-
-        if self.testMode:
-            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 ORDER BY RANDOM() LIMIT 500".format(source), self.db_conn)  # speed up testing
-        else:
-            df = pd.read_sql_query("SELECT * from {0} where yr_brth > 0 ORDER BY RANDOM() LIMIT {1}".format(source, self.sample_size), self.db_conn)  # speed up testing
-
-        desc = df.describe(include='all')
-        exc = pd.ExcelWriter(xls_name)
-        desc.to_excel(exc)
-        exc.save()
-        print("Data description saved to {0}".format(xls_name))
-
-        return desc, df
-
-
-    def get_cols(self, desc):
-        """ get_cols(desc)
-            params: desc - panda dataframe .describe)_ results returned rom describe_data()
-            returns: list of colums
-
-            Called from prepare_test_train_sets()
-            only select fields where the 25th percentile and the 75th are different and at lease 50% of the fields have values. 
-        """
-
-        # Exclude the following fields because they have no clinical significance or they are text data. May need to code these values.
-        # exclude srv_time_mon from this section since it is the variable we are testing for.
-        exclude = ['SRV_TIME_MON', 'CASENUM', 'REG', 'SITEO2V', 'EOD13', 'EOD2','ICDOT10V', 'DATE_mo', 'SRV_TIME_MON_PA', 
-                   'SRV_TIME_MON_FLAG', 'SRV_TIME_MON_FLAG_PA', 'SS_SURG', 'SURGPRIM', 'HIST_SSG_2000', 'ICD_5DIG']
-        cols = []
-        for field in desc:
-            x = desc[field]['count']
-            if desc[field]['count'] > desc['CASENUM']['count'] / 2 and \
-               desc[field]['min'] != desc[field]['75%'] and \
-               desc[field]['25%'] != desc[field]['max'] and \
-               field not in exclude:
-                cols.append(field)
-        return cols
-
-
-    def prepare_test_train_sets(self, source, dependent, test_pct = .20, return_all=False, cols = []):
+    def prepare_test_train_sets(self, source, dependent, test_pct = .20, return_one_df=False, cols = [], dependent_cutoffs=[60]):
         """ prepare_test_train_sets(source, dependent):
             params:  source - table name in seer database, defaults to 'breast'
                      dependent - name of field we are testing for, need to remove from X and assign to Y
                      test_pct - percentage of sample to rserve for testing defaults to .20
-                     return_all - return one big X, and y set for cross validation of entire sample
+                     return_one_df - return one big X, and y set for cross validation of entire sample
 
             returns: X_train, X_test, y_train, y_test, cols
                      X_train and X_test are pd.DataFrames, y_train and y_test are np.arrays
                      cols is a list of column names
-                     if return_all, return one X, y, and cols
+                     if return_one_df, return one X, y
         """
 
-        # get description of all fields
-        desc,_ = seer.describe_data(source)
-        # select fields to test based on distribution and number of empty values
-        if not cols:
-            cols = seer.get_cols(desc)
+        # pull specified fields from database using random rows.
+        cols.append(dependent)
+        df = super().load_data(source, cols, cond=self.where, sample_size=self.sample_size)
+        df, dependent = self.clean_recode_data(df, dependent_cutoffs)
 
-        # pull relevent fields from database using random rows.
-        delimList = ','.join(map(str, cols)) 
-        df = pd.read_sql_query("SELECT {0}, {1} \
-                                FROM {2} \
-                                ORDER BY RANDOM() \
-                                LIMIT {3}".format(delimList, dependent, source, self.sample_size), self.db_conn)
+        # drop dependent colum from feature arrays
+        y = df[dependent].values
+        df = df.drop(dependent, 1)
 
-        df = self.clean_recode_data(df)
+        if return_one_df:
+            return df, y
 
-        # split data frame into train and test sets (80/20)
-        if return_all:
-            X = df.drop(dependent, 1)
-            y = df[dependent].values
-            return X, y
-
-        X_train, X_test, y_train, y_test = train_test_split(df, df[dependent].values, test_size=test_pct, random_state=0)
-
-        #find_features(df, X_train, y_train)
-        #return
+        X_train, X_test, y_train, y_test = train_test_split(df, y, test_size=test_pct, random_state=0)
 
         # drop dependent colum from feature arrays
         X_train = X_train.drop(dependent, 1)
@@ -174,7 +116,8 @@ class ReadSeer(MasterSeer):
             for combo in itertools.combinations(cols, num_features):
                 try: 
                     # train this model
-                    X = np.array(X_train[ [k for k in combo[:num_features]] ].values).astype(np.float32)
+                    X = X_train[list(combo)]
+                    #X = np.array(X_train[ [k for k in combo[:num_features]] ].values).astype(np.float32)
                     # scale data if model requires it
                     #X = preprocessing.scale(x)
                     y = y_train
@@ -182,7 +125,8 @@ class ReadSeer(MasterSeer):
                     model.fit(X, y)
                     #print(model.feature_log_prob_())
                     # now test and score it
-                    X = np.array(X_test[ [k for k in combo[:num_features]] ].values).astype(np.float32)
+                    X = X_test[list(combo)]
+                    #X = np.array(X_test[ [k for k in combo[:num_features]] ].values).astype(np.float32)
                     # scale data if model requires it
                     #X = preprocessing.scale(x)
                     y = y_test
@@ -210,10 +154,10 @@ class ReadSeer(MasterSeer):
         print("\nAll Completed: {0}  Results stored in: {1}".format(counter, xls_name))
 
 
-    def clean_recode_data(self, df):
+    def clean_recode_data(self, df, dependent_cutoffs):
         """ clean_recode_data(df)
             params: df - dataframe of seer data to clean
-            returns: cleaned dataframe
+            returns: cleaned dataframe, and name of new coded dependent variable
 
             Each cleaning step is on its own line so we can pick and choose what 
             steps we want after we decide on variables to study
@@ -221,7 +165,6 @@ class ReadSeer(MasterSeer):
             *** This is just a starting template.
             ***   I will finish when variables are determined.
         """
-
         # drop all rows that have invalid or missing data
         try: 
             df = df.dropna(subset = ['YR_BRTH']) # add column names here as needed
@@ -232,6 +175,11 @@ class ReadSeer(MasterSeer):
             df.LATERAL = df.LATERAL.replace([0, 1,2,3], 1)  # one site = 1
             df.LATERAL = df.LATERAL.replace([4,5,9], 2)     # paired = 2
         except: 
+            pass
+
+        try:
+            df = df[df.O_DTH_CLASS == 0]
+        except:
             pass
 
         try:
@@ -315,17 +263,34 @@ class ReadSeer(MasterSeer):
         #except Exception as err:
         #    pass
 
-        # categorical columns to one hot encode
-        cat_cols_to_encode=['RACE', 'ORIGIN', 'SEX', 'TUMOR_2V', 'HISTREC']
+
+        # creat new dependent column called SRV_BUCKET to hold the survival time value
+        # based on the values sent into this function in the dependent_cutoffs list
+        # first bucket is set to 0, next 1, etc...
+        # Example dependent_cutoffs=[60,120,500]
+        #   if survival is less than 60 SRV_BUCKET is set to 0
+        #   if survival is >=60 and < 120 SRV_BUCKET is set to 1
+
+        # create new column of all NaN
+        df['SRV_BUCKET'] = np.NaN
+        # fill buckets
+        last_cut = 0       
+        for x, cut in enumerate(dependent_cutoffs):
+            df.loc[(df.SRV_TIME_MON >= last_cut) & (df.SRV_TIME_MON < cut), 'SRV_BUCKET'] = x
+            last_cut = cut
+        # assign all values larger than last cutoff to next bucket number       
+        df['SRV_BUCKET'].fillna(len(dependent_cutoffs), inplace=True)
+
+        df = df.drop('SRV_TIME_MON', 1)
+
+        # categorical columns to one hot encode, check to make sure they are in df
+        cat_cols_to_encode = list(set(['RACE', 'ORIGIN', 'SEX', 'TUMOR_2V', 'HISTREC']) & set(df.columns))
         df = self.one_hot_data(df, cat_cols_to_encode)
 
         df.replace([np.inf, -np.inf], np.nan)
         df = df.fillna(0)
 
-        # this code will add a new column for SRV_TIME_MON decile in case we want to use this as the dependent variable
-        #df['SRV_DECILE'] = pd.qcut(df['SRV_TIME_MON'], 10, labels=False)
-
-        return df
+        return df, 'SRV_BUCKET'
 
 
     def one_hot_data(self, data, cols):
@@ -340,46 +305,7 @@ class ReadSeer(MasterSeer):
         return pd.get_dummies(data, columns = col_to_process,  prefix = col_to_process)
 
 
-    def find_features(self, X, y, plot = True):
-        """
-            work in progress - not completed
-        """
-        X_indices = np.arange(X.shape[-1])
-
-        col = list(X.columns.values)
-        test = 2
-
-        if test == 1:
-            selector = SelectPercentile(f_classif, percentile=10)
-            selector.fit(np.array(X), y)
-            values = np.nan_to_num(selector.pvalues_)
-        else:
-            model = LinearRegression()
-            model.fit(np.array(X), y)
-            selector = SelectFromModel(f_classif)
-            selector.fit(np.array(X), y)
-
-        values = np.nan_to_num(selector.pvalues_)
-
-        if plot:
-            #scores = -np.log10(values)
-            #scores /= scores.max()
-
-            fig, ax = plt.subplots()
-            #ax.set_xticks(col)
-            ax.set_xticklabels(col, rotation='vertical')
-            ax.set_title(r'Univariate score')
-
-            ax.bar(X_indices - .45, values, width=.2, color='g')
-            plt.show()
-
-        for i, val in enumerate(values):
-            print("{0}  {1:.2f}".format(col[i], val))
-
-        return
-
-
-    def cross_val_model(self, model, features, source='breast', sample_size=5000, num_folds = 5):
+    def cross_val_model(self, model, features, source='breast', sample_size=5000, num_folds = 5, dependent_cutoffs=[60]):
         """ cr_val_model(self, model, model_name, source)
             perform cross-validation on a specific model using specified sample size
 
@@ -387,6 +313,8 @@ class ReadSeer(MasterSeer):
                     features = list of features(fields) to use for model
                     source - table name in seer database, defaults to 'breast'
                     num_folds - number of folds for cross validation
+                    dependent_cutoffs - list of number of months to create buckets for dependent variable
+                        default is [60] which will create two buckets (one <60 and one >= 60)
         """
         
         mdl = model()
@@ -396,12 +324,13 @@ class ReadSeer(MasterSeer):
         dependent = 'SRV_TIME_MON'
 
         # get all of the data, we will split to test/train using scikit's KFold routine
-        X, y = self.prepare_test_train_sets(source, dependent, return_all=True, cols = features)
+        X, y = self.prepare_test_train_sets(source, dependent, return_one_df=True, cols = features, dependent_cutoffs=dependent_cutoffs)
         X = np.array(X, dtype=np.float16)
+        y = y.astype(np.int)
 
         kf = KFold(len(X), n_folds=num_folds, shuffle=True)
         # `means` will be a list of mean accuracies (one entry per fold)
-        scores = []
+        scores = {'precision':[], 'recall':[], 'f1':[]}
         for training, testing in kf:
             # Fit a model for this fold, then apply it to the
             Xtrn = X[training]
@@ -412,25 +341,37 @@ class ReadSeer(MasterSeer):
             Xtst = X[testing]
             #min_max_scaler = preprocessing.MinMaxScaler()
             #Xtst = min_max_scaler.fit_transform(Xtst)
-            scores.append(mdl.score(Xtst, y[testing]))
             y_pred_test = mdl.predict(Xtst)
+            y_pred_test = np.rint(y_pred_test)
+            y_pred_test = y_pred_test.astype(np.int)
 
             # last batch is used for plotting
-            ytst = y[testing]
+            y_test = y[testing]
 
-        print("Mean of scores: {:.1}".format(np.mean(scores)))
+            classificationReport = classification_report(y_test, y_pred_test)
+            print("Report For: {0}".format(model_name))
+            print(classificationReport)
+
+            # Append scores for this run
+
+            nn = precision_score(y_test, y_pred_test, average='micro')
+
+            p,r,f,_ = precision_recall_fscore_support(y_test, y_pred_test)
+            scores['precision'].append(p)
+            scores['recall'].append(r)
+            scores['f1'].append(f)
 
         # sort the y test data and keep the y_pred_test array in sync 
         # sort to make the graph more informative
-        ytst, y_pred_test = zip(*sorted(zip(ytst, y_pred_test)))
+        y_test, y_pred_test = zip(*sorted(zip(y_test, y_pred_test)))
 
         # plot last batch's results
-        plt.plot([x for x in range(len(ytst))], y_pred_test, 'o', label="prediction")
-        plt.plot([x for x in range(len(ytst))], ytst, 'o', label="data")
+        plt.plot([x for x in range(len(y_test))], y_pred_test, 'x', label="prediction")
+        plt.plot([x for x in range(len(y_test))], y_test, 'o', label="data")
         plt.legend(loc='best')
         plt.title(model_name)
         # crop outliers so graph is more meaningful
-        plt.ylim(0, 500)
+        plt.ylim(0, 6)
         plt.show()
 
 
@@ -444,7 +385,7 @@ if __name__ == '__main__':
 
     t0 = time.perf_counter()
 
-    seer = ReadSeer(sample_size = 5000)
+    seer = ModelSeer(sample_size = 1000, where="DATE_yr < 2008")
     
     ################ 
 
@@ -456,13 +397,14 @@ if __name__ == '__main__':
     ################ 
 
     # this line will run the selcted models
-    #seer.test_models(styles = [RandomForestClassifier, KNeighborsRegressor, Lasso, Ridge], num_features=99)
+    #seer.test_models(styles = [RandomForestClassifier, KNeighborsRegressor, Lasso, Ridge], num_features=3)
 
     ################ 
 
     # used to cross validate and plot a specific test and features.
-    seer.cross_val_model(KNeighborsRegressor, ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'])
+    seer.cross_val_model(KNeighborsRegressor, ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'], dependent_cutoffs=[60, 120])
 
     ################ 
 
-    print('\nReadSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))
+    del seer
+    print('\nModelSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))
