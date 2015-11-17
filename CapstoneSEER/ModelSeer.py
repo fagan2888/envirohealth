@@ -389,7 +389,7 @@ if __name__ == '__main__':
 
     t0 = time.perf_counter()
 
-    seer = ModelSeer(sample_size=1000, where="DATE_yr < 2008")
+    seer = ModelSeer(sample_size=1000, where="DATE_yr < 2008 AND O_DTH_CLASS = 0")
     
     ################ 
 
