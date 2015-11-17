@@ -19,7 +19,7 @@ class MasterSeer(object):
         self.dataDictInfo = []
         self.db_conn = None
         self.db_cur = None
-        self.sample_size = batch
+        self.batch = batch
 
     def __del__(self):
         self.db_conn.close()

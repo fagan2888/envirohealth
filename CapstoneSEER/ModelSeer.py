@@ -47,6 +47,9 @@ class ModelSeer(MasterSeer):
                      dependent - name of field we are testing for, need to remove from X and assign to Y
                      test_pct - percentage of sample to rserve for testing defaults to .20
                      return_one_df - return one big X, and y set for cross validation of entire sample
+                     cols - columns to pull from sqldatabase
+                     dependent_cutoffs - list of number of months to create buckets for dependent variable
+                         default is [60] which will create two buckets (one <60 and one >= 60)
 
             returns: X_train, X_test, y_train, y_test, cols
                      X_train and X_test are pd.DataFrames, y_train and y_test are np.arrays
@@ -68,17 +71,15 @@ class ModelSeer(MasterSeer):
 
         X_train, X_test, y_train, y_test = train_test_split(df, y, test_size=test_pct, random_state=0)
 
-        # drop dependent colum from feature arrays
-        X_train = X_train.drop(dependent, 1)
-        X_test = X_test.drop(dependent, 1)
-
         return X_train, X_test, y_train, y_test, X_train.columns
 
 
     def test_models(self, 
                     source = 'breast', 
                     styles = [MultinomialNB, BernoulliNB, LinearRegression, KNeighborsRegressor, Lasso, Ridge], 
-                    num_features = 3):
+                    num_features = 3,
+                    cols = ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'],
+                    dependent_cutoffs=[60]):
 
         """ test_models(source = 'BREAST'):
             params:  source - table name in seer database, defaults to 'breast'
@@ -98,7 +99,7 @@ class ModelSeer(MasterSeer):
         dependent = 'SRV_TIME_MON'
 
         # get sets to train and test (80/20 split)
-        X_train, X_test, y_train, y_test, cols = self.prepare_test_train_sets(source, dependent, test_pct = .20)
+        X_train, X_test, y_train, y_test, cols = self.prepare_test_train_sets(source, dependent, test_pct = .20, cols = cols)
         col_cnt = len(cols)
 
         # make sure features to test is not greater than number of columns
@@ -112,26 +113,26 @@ class ModelSeer(MasterSeer):
         counter = 0
         for style in range(len(styles)):
             style_fnc = styles[style]
+            model = style_fnc()
             print("Testing: {0}   ".format(style_fnc.__name__))
             for combo in itertools.combinations(cols, num_features):
                 try: 
                     # train this model
                     X = X_train[list(combo)]
-                    #X = np.array(X_train[ [k for k in combo[:num_features]] ].values).astype(np.float32)
-                    # scale data if model requires it
-                    #X = preprocessing.scale(x)
-                    y = y_train
-                    model = style_fnc()
-                    model.fit(X, y)
-                    #print(model.feature_log_prob_())
+                    #X = preprocessing.scale(x)     # scale data if model requires it
+                    model.fit(X, y_train)
+
                     # now test and score it
                     X = X_test[list(combo)]
-                    #X = np.array(X_test[ [k for k in combo[:num_features]] ].values).astype(np.float32)
-                    # scale data if model requires it
-                    #X = preprocessing.scale(x)
-                    y = y_test
-                    z = model.score(X, y)
-                    res.append([z, style_fnc.__name__, [k for k in combo[:num_features]]])
+                    #X = preprocessing.scale(x)     # scale data if model requires it
+
+                    y_pred_test = model.predict(X)
+
+                    y_pred_test = np.rint(y_pred_test)
+                    y_pred_test = y_pred_test.astype(np.int)
+
+                    f1 = f1_score(y_test, y_pred_test)
+                    res.append([f1, style_fnc.__name__, [k for k in combo[:num_features]]])
                     counter += 1
                     if counter % 100 == 0:
                         print("Completed: {0}".format(counter, flush=True), end = '\r')
@@ -139,6 +140,7 @@ class ModelSeer(MasterSeer):
                     counter += 1
                     if self.verbose:
                         print(err)
+            del model
 
         # store trial results to excel
         res = sorted(res, reverse=True)
@@ -374,6 +376,8 @@ class ModelSeer(MasterSeer):
         plt.ylim(0, 6)
         plt.show()
 
+        #print(scores)
+
 
     def show_hist(self, df, cols):
         for col in cols:
@@ -385,7 +389,7 @@ if __name__ == '__main__':
 
     t0 = time.perf_counter()
 
-    seer = ModelSeer(sample_size = 1000, where="DATE_yr < 2008")
+    seer = ModelSeer(sample_size=1000, where="DATE_yr < 2008")
     
     ################ 
 
@@ -397,12 +401,13 @@ if __name__ == '__main__':
     ################ 
 
     # this line will run the selcted models
-    #seer.test_models(styles = [RandomForestClassifier, KNeighborsRegressor, Lasso, Ridge], num_features=3)
+    #seer.test_models(styles = [RandomForestClassifier, KNeighborsRegressor, Lasso, Ridge], 
+    #                 cols = ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'], num_features=3, dependent_cutoffs=[60, 120])
 
     ################ 
 
     # used to cross validate and plot a specific test and features.
-    seer.cross_val_model(KNeighborsRegressor, ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'], dependent_cutoffs=[60, 120])
+    seer.cross_val_model(RandomForestClassifier, ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'], dependent_cutoffs=[60, 120])
 
     ################ 
 
