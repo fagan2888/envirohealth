@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>02c6287d-40ae-47c6-b01b-b495b7bf8434</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>ModelSeer.py</StartupFile>
+    <StartupFile>ExploreSeer.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>

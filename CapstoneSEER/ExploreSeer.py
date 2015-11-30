@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 from MasterSeer import MasterSeer
 from sklearn.feature_selection import SelectPercentile, f_classif, SelectFromModel
 from sklearn.linear_model import LinearRegression
-
+from lifelines.plotting import plot_lifetimes
+from lifelines import KaplanMeierFitter
+from numpy.random import uniform, exponential
 
 class ExploreSeer(MasterSeer):
 
@@ -91,8 +93,72 @@ class ExploreSeer(MasterSeer):
 
         return
 
+    def plot_survival(self):
+
+        
+        df = super().load_data(col = ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS', 'SRV_TIME_MON_PA', 'O_DTH_CLASS'], 
+                               cond = 'SRV_TIME_MON_PA < 9000', sample_size = 10000)
+
+        kmf = KaplanMeierFitter()
+
+        try:
+            df.RADIATN = df.RADIATN.replace(7, 0)
+            df = df[df.RADIATN < 7] 
+        except Exception as err:
+            pass
+
+        # 0-negative, 1-borderline,, 2-positive
+        df = df[df.ERSTATUS != 4]
+        df = df[df.ERSTATUS != 9]
+        df.ERSTATUS = df.ERSTATUS.replace(2, 0)
+        df.ERSTATUS = df.ERSTATUS.replace(1, 2)
+        df.ERSTATUS = df.ERSTATUS.replace(3, 1)
+
+        rad = df.RADIATN > 0
+        er = df.ERSTATUS > 0
+        st = df.HST_STGA <= 1
+        age = df.AGE_DX < 45
+
+        #print(df.head())
+        #print(rad.head())
+        #print(er.head())
+        #print(st.head())
 
 
+        T = df['SRV_TIME_MON_PA']
+        C = df.O_DTH_CLASS == 1
+
+        f, ax = plt.subplots(4, sharex=True)
+        plt.title("Lifespans of cancer patients");
+
+        # radiation
+        kmf.fit(T[rad], event_observed=C[rad], label="Radiation")
+        kmf.plot(ax=ax[0]) #, ci_force_lines=True)
+        kmf.fit(T[~rad], event_observed=C[~rad], label="No Radiation")
+        kmf.plot(ax=ax[0]) #, ci_force_lines=True)
+
+        # ER Status
+        kmf.fit(T[er], event_observed=C[er], label="ER Positive")
+        kmf.plot(ax=ax[1]) #, ci_force_lines=True)
+        kmf.fit(T[~er], event_observed=C[~er], label="ER Negative")
+        kmf.plot(ax=ax[1]) #, ci_force_lines=True)
+
+        # stage
+        kmf.fit(T[st], event_observed=C[st], label="State 0/1")
+        kmf.plot(ax=ax[2]) #, ci_force_lines=True)
+        kmf.fit(T[~st], event_observed=C[~st], label="Statge 2+")
+        kmf.plot(ax=ax[2]) #, ci_force_lines=True)
+
+        # age
+        kmf.fit(T[age], event_observed=C[age], label="Age < 50")
+        kmf.plot(ax=ax[3]) #, ci_force_lines=True)
+        kmf.fit(T[~age], event_observed=C[~age], label="Age >= 50")
+        kmf.plot(ax=ax[3]) #, ci_force_lines=True)
+
+        plt.ylim(0,1);
+        plt.show()
+
+        return
 
 
 
@@ -101,7 +167,8 @@ if __name__ == '__main__':
     t0 = time.perf_counter()
 
     seer = ExploreSeer()
-    seer.describe_data()
+    #seer.describe_data()
+    seer.plot_survival()
 
     del seer
     print('\nExploreSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))

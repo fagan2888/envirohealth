@@ -292,6 +292,10 @@ class ModelSeer(MasterSeer):
         df.replace([np.inf, -np.inf], np.nan)
         df = df.fillna(0)
 
+        exc = pd.ExcelWriter('clean.xlsx')
+        df.to_excel(exc)
+        exc.save()
+
         return df, 'SRV_BUCKET'
 
 
