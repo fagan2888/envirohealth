@@ -95,9 +95,8 @@ class ExploreSeer(MasterSeer):
 
     def plot_survival(self):
 
-        
-        df = super().load_data(col = ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS', 'SRV_TIME_MON_PA', 'O_DTH_CLASS'], 
-                               cond = 'SRV_TIME_MON_PA < 9000', sample_size = 10000)
+        df = super().load_data(col  = ['YR_BRTH','AGE_DX','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS', 'SRV_TIME_MON', 'SRV_TIME_MON_PA', 'DTH_CLASS', 'O_DTH_CLASS', 'STAT_REC'], 
+                               cond = 'SRV_TIME_MON < 1000 AND HST_STGA < 8 AND DTH_CLASS < 9 AND ERSTATUS < 4 AND PRSTATUS < 4', sample_size = 100000)
 
         kmf = KaplanMeierFitter()
 
@@ -114,22 +113,42 @@ class ExploreSeer(MasterSeer):
         df.ERSTATUS = df.ERSTATUS.replace(1, 2)
         df.ERSTATUS = df.ERSTATUS.replace(3, 1)
 
+        # 0-negative, 1-borderline,, 2-positive
+        df = df[df.PRSTATUS != 4]
+        df = df[df.PRSTATUS != 9]
+        df.PRSTATUS = df.PRSTATUS.replace(2, 0)
+        df.PRSTATUS = df.PRSTATUS.replace(1, 2)
+        df.PRSTATUS = df.PRSTATUS.replace(3, 1)
+
         rad = df.RADIATN > 0
-        er = df.ERSTATUS > 0
-        st = df.HST_STGA <= 1
-        age = df.AGE_DX < 45
+        er  = df.ERSTATUS > 0
+        pr  = df.PRSTATUS > 0
+
+        st0  = df.HST_STGA == 0
+        st1  = df.HST_STGA == 1
+        st2  = df.HST_STGA == 2
+        st4  = df.HST_STGA == 4
+
+        age = df.AGE_DX < 50
 
         #print(df.head())
         #print(rad.head())
         #print(er.head())
         #print(st.head())
 
+        T = df['SRV_TIME_MON']
+        #C = (np.logical_or(df.DTH_CLASS == 1, df.O_DTH_CLASS == 1))
+        C = df.STAT_REC == 4
 
-        T = df['SRV_TIME_MON_PA']
-        C = df.O_DTH_CLASS == 1
+        #print(T.head(20))
+        #print(C.head(20))
+        #print(df.DTH_CLASS.head(20))
+        #print(df.O_DTH_CLASS.head(20))
+        #print(df.describe())
 
-        f, ax = plt.subplots(4, sharex=True)
-        plt.title("Lifespans of cancer patients");
+         
+        f, ax = plt.subplots(5, sharex=True, sharey=True)
+        ax[0].set_title("Lifespans of cancer patients");
 
         # radiation
         kmf.fit(T[rad], event_observed=C[rad], label="Radiation")
@@ -143,17 +162,38 @@ class ExploreSeer(MasterSeer):
         kmf.fit(T[~er], event_observed=C[~er], label="ER Negative")
         kmf.plot(ax=ax[1]) #, ci_force_lines=True)
 
+        # PR Status
+        kmf.fit(T[pr], event_observed=C[pr], label="PR Positive")
+        kmf.plot(ax=ax[2]) #, ci_force_lines=True)
+        kmf.fit(T[~pr], event_observed=C[~pr], label="PR Negative")
+        kmf.plot(ax=ax[2]) #, ci_force_lines=True)
+
         # stage
-        kmf.fit(T[st], event_observed=C[st], label="State 0/1")
-        kmf.plot(ax=ax[2]) #, ci_force_lines=True)
-        kmf.fit(T[~st], event_observed=C[~st], label="Statge 2+")
-        kmf.plot(ax=ax[2]) #, ci_force_lines=True)
+        kmf.fit(T[st0], event_observed=C[st0], label="Stage 0")
+        kmf.plot(ax=ax[3]) #, ci_force_lines=True)
+        kmf.fit(T[st1], event_observed=C[st1], label="Stage 1")
+        kmf.plot(ax=ax[3]) #, ci_force_lines=True)
+        kmf.fit(T[st2], event_observed=C[st2], label="Stage 2")
+        kmf.plot(ax=ax[3]) #, ci_force_lines=True)
+        kmf.fit(T[st4], event_observed=C[st4], label="Stage 4")
+        kmf.plot(ax=ax[3]) #, ci_force_lines=True)
 
         # age
         kmf.fit(T[age], event_observed=C[age], label="Age < 50")
-        kmf.plot(ax=ax[3]) #, ci_force_lines=True)
+        kmf.plot(ax=ax[4]) #, ci_force_lines=True)
         kmf.fit(T[~age], event_observed=C[~age], label="Age >= 50")
-        kmf.plot(ax=ax[3]) #, ci_force_lines=True)
+        kmf.plot(ax=ax[4]) #, ci_force_lines=True)
+
+        ax[0].legend(loc=3)
+        ax[1].legend(loc=3)
+        ax[2].legend(loc=3)
+        ax[3].legend(loc=3)
+        ax[4].legend(loc=3)
+
+        ax[len(ax)-1].set_xlabel('Survival in months')
+
+        f.text(0.04, 0.5, 'Survival %', va='center', rotation='vertical')
+        plt.tight_layout()
 
         plt.ylim(0,1);
         plt.show()
