@@ -136,7 +136,10 @@ class ExploreSeer(MasterSeer):
         #print(er.head())
         #print(st.head())
 
-        T = df['SRV_TIME_MON']
+        df['SRV_TIME_YR'] = df['SRV_TIME_MON'] / 12
+
+
+        T = df['SRV_TIME_YR']
         #C = (np.logical_or(df.DTH_CLASS == 1, df.O_DTH_CLASS == 1))
         C = df.STAT_REC == 4
 
@@ -184,19 +187,58 @@ class ExploreSeer(MasterSeer):
         kmf.fit(T[~age], event_observed=C[~age], label="Age >= 50")
         kmf.plot(ax=ax[4]) #, ci_force_lines=True)
 
-        ax[0].legend(loc=3)
-        ax[1].legend(loc=3)
-        ax[2].legend(loc=3)
-        ax[3].legend(loc=3)
-        ax[4].legend(loc=3)
+        ax[0].legend(loc=3,prop={'size':10})
+        ax[1].legend(loc=3,prop={'size':10})
+        ax[2].legend(loc=3,prop={'size':10})
+        ax[3].legend(loc=3,prop={'size':10})
+        ax[4].legend(loc=3,prop={'size':10})
 
-        ax[len(ax)-1].set_xlabel('Survival in months')
+        ax[len(ax)-1].set_xlabel('Survival in years')
 
         f.text(0.04, 0.5, 'Survival %', va='center', rotation='vertical')
         plt.tight_layout()
 
         plt.ylim(0,1);
         plt.show()
+
+        f, ax = plt.subplots(2, sharex=True, sharey=True)
+
+        df.hist('SRV_TIME_YR', by=df.STAT_REC != 4, ax=(ax[0], ax[1]))
+        ax[0].set_title('Histogram of Non Censored Patients')
+        ax[0].set_ylabel('Number of Patients')
+
+        ax[1].set_ylabel('Number of Patients')
+        ax[1].set_title('Histogram of Censored Patients')
+        ax[1].set_xlabel('Survival in Years')
+        plt.show()
+
+        return
+
+        # second plot of survival
+
+
+        fig, ax = plt.subplots(figsize=(8, 6))
+        #blue, _, red = sns.color_palette()[:3]
+
+        cen = df[df.STAT_REC != 4].SRV_TIME_MON
+        nc = df[df.STAT_REC == 4].SRV_TIME_MON
+        cen = cen.sort_values()
+        nc = nc.sort_values()
+
+        ax.hlines([x for x in range(len(nc))] , 0, nc , color = 'b', label='Uncensored');
+        ax.hlines([x for x in range(len(nc), len(nc)+len(cen))], 0, cen, color = 'r', label='Censored');
+
+        #ax.scatter(df[df.metastized.values == 1].time, patients[df.metastized.values == 1],
+        #   color='k', zorder=10, label='Metastized');
+        
+        ax.set_xlim(left=0);
+        ax.set_xlabel('Months');
+        ax.set_ylim(-0.25, len(df) + 0.25);
+        ax.legend(loc='best');
+        plt.show()
+
+
+
 
         return
 
