@@ -219,6 +219,7 @@ class ModelSeer(MasterSeer):
 
         try:
             df.RADIATN = df.RADIATN.replace(7, 0)
+            df.RADIATN = df.RADIATN.replace([2,3,4,5], 1)
             df = df[df.RADIATN < 7] 
         except Exception as err:
             pass
