@@ -283,11 +283,11 @@ class ModelSeer(MasterSeer):
         # assign all values larger than last cutoff to next bucket number       
         df['SRV_BUCKET'].fillna(len(dependent_cutoffs), inplace=True)
 
-        df = df.drop('SRV_TIME_MON', 1)
+        #df = df.drop('SRV_TIME_MON', 1)
 
         # categorical columns to one hot encode, check to make sure they are in df
-        cat_cols_to_encode = list(set(['RACE', 'ORIGIN', 'SEX', 'TUMOR_2V', 'HISTREC']) & set(df.columns))
-        df = self.one_hot_data(df, cat_cols_to_encode)
+        #cat_cols_to_encode = list(set(['RACE', 'ORIGIN', 'SEX', 'TUMOR_2V', 'HISTREC']) & set(df.columns))
+        #df = self.one_hot_data(df, cat_cols_to_encode)
 
         df.replace([np.inf, -np.inf], np.nan)
         df = df.fillna(0)
@@ -393,7 +393,7 @@ if __name__ == '__main__':
 
     t0 = time.perf_counter()
 
-    seer = ModelSeer(sample_size=1000, where="DATE_yr < 2008 AND O_DTH_CLASS = 0")
+    seer = ModelSeer(sample_size=5000, where="DATE_yr < 2008 AND O_DTH_CLASS = 0")
     
     ################ 
 

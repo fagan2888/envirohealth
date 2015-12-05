@@ -27,7 +27,7 @@ class ExploreSeer(MasterSeer):
         self.path = path
 
         # open connection to the database
-        super().__init__(path, False, verbose=verbose)
+        super().__init__(path, False, verbose=verbose, batch=self.sample_size)
         self.db_conn, self.db_cur = super().init_database(False)
 
 
@@ -137,8 +137,6 @@ class ExploreSeer(MasterSeer):
         #print(st.head())
 
         df['SRV_TIME_YR'] = df['SRV_TIME_MON'] / 12
-
-
         T = df['SRV_TIME_YR']
         #C = (np.logical_or(df.DTH_CLASS == 1, df.O_DTH_CLASS == 1))
         C = df.STAT_REC == 4
@@ -216,9 +214,7 @@ class ExploreSeer(MasterSeer):
 
         # second plot of survival
 
-
         fig, ax = plt.subplots(figsize=(8, 6))
-        #blue, _, red = sns.color_palette()[:3]
 
         cen = df[df.STAT_REC != 4].SRV_TIME_MON
         nc = df[df.STAT_REC == 4].SRV_TIME_MON
@@ -228,17 +224,11 @@ class ExploreSeer(MasterSeer):
         ax.hlines([x for x in range(len(nc))] , 0, nc , color = 'b', label='Uncensored');
         ax.hlines([x for x in range(len(nc), len(nc)+len(cen))], 0, cen, color = 'r', label='Censored');
 
-        #ax.scatter(df[df.metastized.values == 1].time, patients[df.metastized.values == 1],
-        #   color='k', zorder=10, label='Metastized');
-        
         ax.set_xlim(left=0);
         ax.set_xlabel('Months');
         ax.set_ylim(-0.25, len(df) + 0.25);
         ax.legend(loc='best');
         plt.show()
-
-
-
 
         return
 
@@ -248,7 +238,7 @@ if __name__ == '__main__':
 
     t0 = time.perf_counter()
 
-    seer = ExploreSeer()
+    seer = ExploreSeer(sample_size=10000)
     #seer.describe_data()
     seer.plot_survival()
 
