@@ -23,6 +23,7 @@ def showInformation():
 def shoeInformation():
     return render_template("results.html")
 
+# Run http://localhost:5000/#
 
 """
 Database code
