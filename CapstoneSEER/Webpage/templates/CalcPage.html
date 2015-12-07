@@ -22,10 +22,190 @@
               <h3 class="text-muted">Breast Cancer Prognosis Calculator</h3>
           </div>
         <div class="jumbotron">
-            <h1></h1>
-            <p class="lead"></p>
-            <p><a class="btn btn-lg btn-success" href="showResults" role="button">Calculate</a>
-            </p>
+            <!-- <h1></h1>
+            <p class="lead"></p> -->
+            <div class="col-lg-6">
+              <form action="/results.html" method="get">
+                <div class="form-group ">
+                  <label class="control-label " for="age">
+                    Age
+                  </label>
+                  <input class="form-control" id="age" name="age" type="text"/>
+                </div>
+                <div class="form-group ">
+                  <label class="control-label ">
+                    Have you received radiation therapy?
+                  </label>
+                  <div class=" ">
+                    <div class="checkbox">
+                      <label class="checkbox">
+                        <input name="checkbox" type="checkbox" value="1"/>
+                        Yes
+                      </label>
+                    </div>
+                    <div class="checkbox">
+                      <label class="checkbox">
+                        <input name="checkbox" type="checkbox" value="0"/>
+                        No
+                      </label>
+                    </div>
+                </div>
+              </div>
+              <div class="form-group ">
+                <label class="control-label " for="race">
+                  Please select your race:
+                </label>
+                <select class="select form-control" id="race" name="race">
+                  <option>
+
+                  </option>
+                  <option value="101">
+                    White
+                  </option>
+                  <option value="102">
+                    Black
+                  </option>
+                  <option value="103">
+                    Native American
+                  </option>
+                  <option value ="104">
+                    Chinese
+                  </option>
+                  <option value="105">
+                    Japanese
+                  </option>
+                  <option value="107">
+                   Pacific Islander
+                 </option>
+                 <option value="108">
+                   Other Asian
+                </option>
+                <option value ="">
+                  Other/Unknown
+                </option>
+              </select>
+            </div>
+              <div class="form-group ">
+                <label class="control-label" for="laterality">
+                  Laterality:
+                </label>
+                <select class="select form-control" id="laterality" name="laterality">
+                  <option>
+
+                  </option>
+                  <option value="1">
+                    Lateral
+                  </option>
+                  <option value="2">
+                    Bilateral/Paired
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="control-label" for="tumorbehavior">
+                  Tumor behavior:
+                </label>
+                <select class="select form-control" id="tumorbehavior" name="tumorbehavior">
+                  <option>
+
+                  </option>
+                  <option value ="0">
+                    Benign
+                  </option>
+                  <option value="1">
+                    Borderline
+                  </option>
+                  <option value="2">
+                    In-situ
+                  </option>
+                  <option value="3">
+                    Malignant
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="control-label" for="tumorstage">
+                  Tumor stage:
+                </label>
+                <select class="select form-control" id="tumorstage" name="tumorstage">
+                  <option>
+
+                  </option>
+                  <option value ="0">
+                    In-situ
+                  </option>
+                  <option value="1">
+                    Localized
+                  </option>
+                  <option value="2">
+                    Regional
+                  </option>
+                  <option value="3">
+                    Distant
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="control-label" for="numberprims">
+                  Number of Primaries:
+                </label>
+                <select class="select form-control" id="numberprims" name="numberprims">
+                  <option>
+
+                  </option>
+                  <option value="1">
+                    1
+                  </option>
+                  <option value="2">
+                    2+
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="control-label" for"erstatus">
+                  Estrogen receptor status:
+                </label>
+                <select class="select form-control" id="erstatus" name="erstatus">
+                  <option>
+
+                  </option>
+                  <option value="0">
+                    Negative
+                  </option>
+                  <option value="1">
+                    Borderline
+                  </option>
+                  <option value="2">
+                    Positive
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="control-label" for"prstatus">
+                  Progesterone receptor status:
+                </label>
+                <select class="select form-control" id="prstatus" name="prstatus">
+                  <option>
+
+                  </option>
+                  <option value="0">
+                    Negative
+                  </option>
+                  <option value="1">
+                    Borderline
+                  </option>
+                  <option value="2">
+                    Positive
+                  </option>
+                </select>
+              </div>
+            </form>
+          </div>
+          <button class="btn btn-primary " name="calculate" type="calculate">
+            Calculate
+          </button>
+              <!---<p><a class="btn btn-sm btn-success" href="showResults" role="button">Calculate</a></p>--->
         </div>
+      </div>
   </body>
 </html>
