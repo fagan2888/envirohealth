@@ -1,19 +1,5 @@
 <!DOCTYPE html>
 <!---Run http://localhost:5000/#--->
-<?php
-  if($_POST['calculate'] == "Submit")
-  {
-    $varAge = $_POST['age'];
-    $varRadtn = $_POST['radtn'];
-    $varRace = $_POST['race'];
-    $varLaterality = $_POST['laterality'];
-    $varTumorbehavior = $_POST['tumorbehavior'];
-    $varTumorstage = $_POST['tumorstage'];
-    $varNumberprims = $_POST['numberprims'];
-    $varErstatus = $_POST['erstatus'];
-    $varPrstatus = $_POST['prstatus'];
-  }
-  ?>
 <html lang="en">
   <head>
       <title>Breast Cancer Prognosis Calculator</title>
@@ -40,6 +26,7 @@
             <p class="lead"></p>
             <div class="col-lg-6">
               <form class="form-inline" role="form" method="get">
+              <?php include 'calcsubmit.php';?>
                 <div class="form-group ">
                   <label class="control-label " for="age">
                     Age
