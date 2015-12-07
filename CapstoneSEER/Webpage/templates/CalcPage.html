@@ -1,5 +1,19 @@
 <!DOCTYPE html>
 <!---Run http://localhost:5000/#--->
+<?php
+  if($_POST['calculate'] == "Submit")
+  {
+    $varAge = $_POST['age'];
+    $varRadtn = $_POST['radtn'];
+    $varRace = $_POST['race'];
+    $varLaterality = $_POST['laterality'];
+    $varTumorbehavior = $_POST['tumorbehavior'];
+    $varTumorstage = $_POST['tumorstage'];
+    $varNumberprims = $_POST['numberprims'];
+    $varErstatus = $_POST['erstatus'];
+    $varPrstatus = $_POST['prstatus'];
+  }
+  ?>
 <html lang="en">
   <head>
       <title>Breast Cancer Prognosis Calculator</title>
@@ -25,7 +39,7 @@
             <p>Please input your information</p>
             <p class="lead"></p>
             <div class="col-lg-6">
-              <form class="form-inline" role="form">
+              <form class="form-inline" role="form" method="get">
                 <div class="form-group ">
                   <label class="control-label " for="age">
                     Age
@@ -33,24 +47,22 @@
                   <input class="form-control" id="age" name="age" type="text"/>
                 </div></br></br>
                 <div class="form-group ">
-                  <label class="control-label ">
+                  <label class="control-label " for="radtn">
                     Have you received radiation therapy?
                   </label></br>
-                  <!---<div class=" ">--->
-                    <div class="radio-inline">
-                      <label class="radio-inline">
-                        <input name="radio" type="radio" value="1"/>
-                        Yes
-                      </label>
-                    </div>
-                    <div class="radio-inline">
-                      <label class="radio-inline">
-                        <input name="radio" type="radio" value="0"/>
-                        No
-                      </label>
-                    </div>
+                  <select class="select form-control" id="radtn" name="radtn">
+                    <option>
+
+                    </option>
+                    <option value="1">
+                      Yes
+                    </option>
+                    <option value="0">
+                      No
+                    </option>
+                  </select>
                 <!---</div>--->
-              </div></br></br>
+                </div></br></br>
               <div class="form-group ">
                 <label class="control-label " for="race">
                   Please select your race:
@@ -199,11 +211,11 @@
                 </option>
               </select>
             </div></br></br>
+            <button type="submit" class="btn btn-primary " name="calculate" value="Submit">
+              Calculate
+            </button>
           </form>
         </div>
-        <button type="submit" class="btn btn-primary " name="calculate">
-          Calculate
-        </button>
             <!---<p><a class="btn btn-sm btn-success" href="showResults" role="button">Calculate</a></p>--->
       </div>
     </div>
