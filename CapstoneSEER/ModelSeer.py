@@ -60,7 +60,7 @@ class ModelSeer(MasterSeer):
         # pull specified fields from database using random rows.
         cols.append(dependent)
         df = super().load_data(source, cols, cond=self.where, sample_size=self.sample_size)
-        df, dependent = self.clean_recode_data(df, dependent_cutoffs)
+        df, dependent = super().clean_recode_data(df, dependent_cutoffs)
 
         # drop dependent colum from feature arrays
         y = df[dependent].values
@@ -155,163 +155,6 @@ class ModelSeer(MasterSeer):
 
         print("\nAll Completed: {0}  Results stored in: {1}".format(counter, xls_name))
 
-
-    def clean_recode_data(self, df, dependent_cutoffs):
-        """ clean_recode_data(df)
-            params: df - dataframe of seer data to clean
-            returns: cleaned dataframe, and name of new coded dependent variable
-
-            Each cleaning step is on its own line so we can pick and choose what 
-            steps we want after we decide on variables to study
-
-            *** This is just a starting template.
-            ***   I will finish when variables are determined.
-        """
-        # drop all rows that have invalid or missing data
-        try: 
-            df = df.dropna(subset = ['YR_BRTH']) # add column names here as needed
-        except Exception as err:
-            pass
-
-        try:
-            df.LATERAL = df.LATERAL.replace([0, 1,2,3], 1)  # one site = 1
-            df.LATERAL = df.LATERAL.replace([4,5,9], 2)     # paired = 2
-        except: 
-            pass
-
-        try:
-            df = df[df.O_DTH_CLASS == 0]
-        except:
-            pass
-
-        try:
-            # 0-benign, 1-borderline, 2-in situ, 3-malignant
-            df = df[df.BEHANAL != 5]
-            df.BEHANAL = df.BEHANAL.replace([3,4,6], 3)
-        except:
-            pass
-
-        try: 
-            df = df[df.HST_STGA != 8]
-            df = df[df.HST_STGA != 9]
-        except: 
-            pass
-
-        try: 
-            # 0-negative, 1-borderline,, 2-positive
-            df = df[df.ERSTATUS != 4]
-            df = df[df.ERSTATUS != 9]
-            df.ERSTATUS = df.ERSTATUS.replace(2, 0)
-            df.ERSTATUS = df.ERSTATUS.replace(1, 2)
-            df.ERSTATUS = df.ERSTATUS.replace(3, 1)
-        except:
-            pass
-
-        try: 
-            # 0-negative, 1-borderline,, 2-positive
-            df = df[df.PRSTATUS != 4]
-            df = df[df.PRSTATUS != 9]
-            df.PRSTATUS = df.PRSTATUS.replace(2, 0)
-            df.PRSTATUS = df.PRSTATUS.replace(1, 2)
-            df.PRSTATUS = df.PRSTATUS.replace(3, 1)
-        except:
-            pass
-
-        try:
-            df.RADIATN = df.RADIATN.replace(7, 0)
-            df.RADIATN = df.RADIATN.replace([2,3,4,5], 1)
-            df = df[df.RADIATN < 7] 
-        except Exception as err:
-            pass
-
-        try:
-            # code as 1 or 2-more than one
-            df.NUMPRIMS = df.NUMPRIMS.replace([x for x in range(2,37)], 2)
-        except Exception as err:
-            pass
-
-        #try: 
-        #    df = df[df.AGE_DX != 999] 
-        #except: 
-        #    pass
-        #try: 
-        #    df = df[df.SEQ_NUM != 88] 
-        #except: 
-        #    pass
-        #try: 
-        #    df = df[df.GRADE != 9] 
-        #except: 
-        #    pass
-        #try: 
-        #    df = df[df.EOD10_SZ != 999] 
-        #except: 
-        #    pass
-        #try: 
-        #    df = df[df.EOD10_PN < 95] 
-        #except: 
-        #    pass
-
-        #try: 
-        #    # remove unknown or not performed. reorder 0-neg, 1-borderline, 2-pos
-        #    df = df[df.TUMOR_1V in [1,2,3]]
-        #    df.TUMOR_1V = df.TUMOR_1V.replace(2, 0)
-        #    df.TUMOR_1V = df.TUMOR_1V.replace(1, 2)
-        #    df.TUMOR_1V = df.TUMOR_1V.replace(3, 1)
-        #except: 
-        #    pass
-
-        #try:
-        #    df.TUMOR_2V = df.TUMOR_2V.replace(7, 0)
-        #    df = df[df.RADIATN < 7] 
-        #except Exception as err:
-        #    pass
-
-
-        # creat new dependent column called SRV_BUCKET to hold the survival time value
-        # based on the values sent into this function in the dependent_cutoffs list
-        # first bucket is set to 0, next 1, etc...
-        # Example dependent_cutoffs=[60,120,500]
-        #   if survival is less than 60 SRV_BUCKET is set to 0
-        #   if survival is >=60 and < 120 SRV_BUCKET is set to 1
-
-        # create new column of all NaN
-        df['SRV_BUCKET'] = np.NaN
-        # fill buckets
-        last_cut = 0       
-        for x, cut in enumerate(dependent_cutoffs):
-            df.loc[(df.SRV_TIME_MON >= last_cut) & (df.SRV_TIME_MON < cut), 'SRV_BUCKET'] = x
-            last_cut = cut
-        # assign all values larger than last cutoff to next bucket number       
-        df['SRV_BUCKET'].fillna(len(dependent_cutoffs), inplace=True)
-
-        #df = df.drop('SRV_TIME_MON', 1)
-
-        # categorical columns to one hot encode, check to make sure they are in df
-        #cat_cols_to_encode = list(set(['RACE', 'ORIGIN', 'SEX', 'TUMOR_2V', 'HISTREC']) & set(df.columns))
-        #df = self.one_hot_data(df, cat_cols_to_encode)
-
-        df.replace([np.inf, -np.inf], np.nan)
-        df = df.fillna(0)
-
-        exc = pd.ExcelWriter('clean.xlsx')
-        df.to_excel(exc)
-        exc.save()
-
-        return df, 'SRV_BUCKET'
-
-
-    def one_hot_data(self, data, cols):
-        """ Takes a dataframe and a list of columns that need to be encoded.
-            Returns a new dataframe with the one hot encoded vectorized data
-            
-            See the following for explanation: 
-                http://stackoverflow.com/questions/17469835/one-hot-encoding-for-machine-learning
-            """
-        # check to only encode columns that are in the data
-        col_to_process = [c for c in cols if c in data]
-        return pd.get_dummies(data, columns = col_to_process,  prefix = col_to_process)
-
-
     def cross_val_model(self, model, features, source='breast', sample_size=5000, num_folds = 5, dependent_cutoffs=[60]):
         """ cr_val_model(self, model, model_name, source)
             perform cross-validation on a specific model using specified sample size
@@ -394,7 +237,7 @@ if __name__ == '__main__':
 
     t0 = time.perf_counter()
 
-    seer = ModelSeer(sample_size=5000, where="DATE_yr < 2008 AND O_DTH_CLASS = 0")
+    seer = ModelSeer(sample_size=20000, where="DATE_yr < 2008 AND O_DTH_CLASS = 0")
     
     ################ 
 
@@ -412,7 +255,7 @@ if __name__ == '__main__':
     ################ 
 
     # used to cross validate and plot a specific test and features.
-    seer.cross_val_model(RandomForestClassifier, ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'], dependent_cutoffs=[60, 120])
+    seer.cross_val_model(RandomForestClassifier, ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS','STAT_REC'], dependent_cutoffs=[60, 120])
 
     ################ 
 
