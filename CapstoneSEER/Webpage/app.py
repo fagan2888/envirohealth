@@ -1,4 +1,4 @@
-from flask import Flask, render_template, g
+from flask import Flask, render_template, g, json, request
 import sqlite3
 
 app = Flask(__name__)
@@ -19,17 +19,36 @@ def showCalcPage():
 def showInformation():
     return render_template('Information.html')
 
-@app.route("/showResults")
-def shoeInformation():
-    return render_template("results.html")
+# @app.route("/showResults")
+# def showResults():
+#     return render_template("results.html")
+
+@app.route("/showResults",methods=['GET'])
+def calculate():
+    return render_template('results.html')
+    _age = request.form['age']
+    _radtn = request.form['radtn']
+    _race = request.form['race']
+    _laterality = request.form['laterality']
+    _tumorbehavior = request.form['tumorbehavior']
+    _tumorstage = request.form['tumorstage']
+    _numprims = request.form['numberprims']
+    _erstatus = request.form['erstatus']
+    _prstatus = request.form['prstatus']
+
+    fullfields = _age and _radtn and _race and _laterality and _tumorbehavior and _tumorstage and _numprims and _erstatus and _prstatus
+
+    # if fullfields:
+    #     return json.dumps({'html':'<span>OK</span>'})
+    # else:
+    #     return json.dumps({'html':'<span>Err</span>'})
 
 # Run http://localhost:5000/#
 
 """
 Database code
 """
-
-DATABASE = 'C:/Users/bretg_000/Programming/CapstoneSEER/envirohealth/CapstoneSEER/data'
+DATABASE = '../data/seer.db'
 
 def get_db():
     db = getattr(g, '_database', None)
@@ -44,8 +63,6 @@ def close_connection(exception):
         db.close()
 
 # @app.route('TestQuery')
-
-
 
 if __name__ == "__main__":
     app.run()
