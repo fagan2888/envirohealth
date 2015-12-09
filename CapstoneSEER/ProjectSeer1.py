@@ -70,7 +70,9 @@ class ProjectSeer1(MasterSeer):
         X = X.join(df[['SRV_TIME_MON','CENSORED']])
 
         # fit the model
-        print('Creating Aalen Additive Model')
+        if self.verbose:
+            print('Creating Aalen Additive Model')
+
         aaf.fit(X, 'SRV_TIME_MON', 'CENSORED')
 
         return aaf
@@ -84,21 +86,25 @@ class ProjectSeer1(MasterSeer):
             params: pat_data-numpy array of patient specific values for the following columns
                         ['YR_BRTH','AGE_DX','RADIATN','HISTREC','ERSTATUS',
                          'PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS']
-            returns: nothing
+            returns: expected survival time in months
         '''
         if not self.model:
             self.model = self.prepare_model()
 
-        cols = ['YR_BRTH','AGE_DX','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS']
-        for i, col in enumerate(cols):
-            print('{0:10}: {1:.0f}'.format(col, pat_data[0][i+1]))
-
         exp = self.model.predict_expectation(test)
-        print('Expected survival: {0:.1f} months'.format(exp[0][0]))
 
-        self.model.predict_survival_function(test).plot();
-        plt.xlabel('Months')
-        plt.show()
+        if self.verbose:
+            cols = ['YR_BRTH','AGE_DX','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS']
+            for i, col in enumerate(cols):
+                print('{0:10}: {1:.0f}'.format(col, pat_data[0][i+1]))
+
+            print('Expected survival: {0:.1f} months'.format(exp[0][0]))
+
+            self.model.predict_survival_function(test).plot();
+            plt.xlabel('Months')
+            plt.show()
+
+        return exp[0][0]
 
 
 if __name__ == '__main__':
@@ -112,14 +118,14 @@ if __name__ == '__main__':
     except:
         rows = def_rows
     
-    seer = ProjectSeer1(sample_size = rows)
+    seer = ProjectSeer1(sample_size = rows, verbose=True)
 
     #run first person
-    test = np.array([[ 1., 1961., 52., 0, 0., 2., 1., 0., 4., 2.]])
+    test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 4., 2.]])
     seer.process_patient(test)
 
     # run second person
-    test = np.array([[ 1., 1941., 72., 0, 0., 2., 1., 0., 3., 2.]])
+    test = np.array([[ 1., 1941., 74., 0, 0., 2., 1., 0., 3., 2.]])
     seer.process_patient(test)
-    
+
     del seer
