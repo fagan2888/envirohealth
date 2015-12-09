@@ -74,9 +74,9 @@ class ModelSeer(MasterSeer):
         return X_train, X_test, y_train, y_test, X_train.columns
 
 
-    def test_models(self, 
-                    source = 'breast', 
-                    styles = [MultinomialNB, BernoulliNB, LinearRegression, KNeighborsRegressor, Lasso, Ridge], 
+    def test_models(self,
+                    source = 'breast',
+                    styles = [MultinomialNB, BernoulliNB, LinearRegression, KNeighborsRegressor, Lasso, Ridge],
                     num_features = 3,
                     cols = ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'],
                     dependent_cutoffs=[60]):
@@ -88,7 +88,7 @@ class ModelSeer(MasterSeer):
                               make sure to import modules containing the routines to test
                                 i.e. from sklearn.linear_model import LinearRegression, LogisticRegression
                      num_features - number of features to test at one time, set to 99 to test all features in one run.
-                     
+
             returns: n/a
 
             test various models against a combination of features, save scores to excel file named: source+'_seer_models.xlsx'
@@ -104,8 +104,8 @@ class ModelSeer(MasterSeer):
 
         # make sure features to test is not greater than number of columns
         num_features = min(num_features, col_cnt)
-        
-        # formula for number of combinations: nCr = n! / r! (n - r)! 
+
+        # formula for number of combinations: nCr = n! / r! (n - r)!
         tot_cnt = (math.factorial(col_cnt) / (math.factorial(num_features) * math.factorial(col_cnt - num_features))) * len(styles)
         print("Processing: {0} tests.".format(int(tot_cnt)))
 
@@ -116,7 +116,7 @@ class ModelSeer(MasterSeer):
             model = style_fnc()
             print("Testing: {0}   ".format(style_fnc.__name__))
             for combo in itertools.combinations(cols, num_features):
-                try: 
+                try:
                     # train this model
                     X = X_train[list(combo)]
                     #X = preprocessing.scale(x)     # scale data if model requires it
@@ -161,14 +161,14 @@ class ModelSeer(MasterSeer):
             params: df - dataframe of seer data to clean
             returns: cleaned dataframe, and name of new coded dependent variable
 
-            Each cleaning step is on its own line so we can pick and choose what 
+            Each cleaning step is on its own line so we can pick and choose what
             steps we want after we decide on variables to study
 
             *** This is just a starting template.
             ***   I will finish when variables are determined.
         """
         # drop all rows that have invalid or missing data
-        try: 
+        try:
             df = df.dropna(subset = ['YR_BRTH']) # add column names here as needed
         except Exception as err:
             pass
@@ -176,7 +176,7 @@ class ModelSeer(MasterSeer):
         try:
             df.LATERAL = df.LATERAL.replace([0, 1,2,3], 1)  # one site = 1
             df.LATERAL = df.LATERAL.replace([4,5,9], 2)     # paired = 2
-        except: 
+        except:
             pass
 
         try:
@@ -191,13 +191,13 @@ class ModelSeer(MasterSeer):
         except:
             pass
 
-        try: 
+        try:
             df = df[df.HST_STGA != 8]
             df = df[df.HST_STGA != 9]
-        except: 
+        except:
             pass
 
-        try: 
+        try:
             # 0-negative, 1-borderline,, 2-positive
             df = df[df.ERSTATUS != 4]
             df = df[df.ERSTATUS != 9]
@@ -207,7 +207,7 @@ class ModelSeer(MasterSeer):
         except:
             pass
 
-        try: 
+        try:
             # 0-negative, 1-borderline,, 2-positive
             df = df[df.PRSTATUS != 4]
             df = df[df.PRSTATUS != 9]
@@ -220,7 +220,7 @@ class ModelSeer(MasterSeer):
         try:
             df.RADIATN = df.RADIATN.replace(7, 0)
             df.RADIATN = df.RADIATN.replace([2,3,4,5], 1)
-            df = df[df.RADIATN < 7] 
+            df = df[df.RADIATN < 7]
         except Exception as err:
             pass
 
@@ -230,39 +230,73 @@ class ModelSeer(MasterSeer):
         except Exception as err:
             pass
 
-        #try: 
-        #    df = df[df.AGE_DX != 999] 
-        #except: 
+        #BG - race recode
+        try:
+            df.RACE = df.RACE.replace(1,101)
+            df.RACE = df.RACE.replace(2,102)
+            df.RACE = df.RACE.replace(3,103)
+            df.RACE = df.RACE.replace(4,104)
+            df.RACE = df.RACE.replace(5,105)
+            #df.RACE = df.RACE.replace([[x for x in range(20,32)],6,7,97],107)
+            df.RACE = df.RACE.replace([6,7,20,21,22,23,24,25,26,27,28,29,30,31,32,97],107)
+            #df.RACE = df.RACE.replace([[x for x in range(8,17)],96],108) doesn't fully work
+            df.RACE = df.RACE.replace([8,9,10,11,12,13,14,15,16,17,96],108)
+            df.RACE = df.RACE.replace(98,99)
+        except:
+            pass
+
+        # try:
+        #     df[df.RACE == 1][df.ORIGIN != 0] = 109
+        # except:
+        #     pass
+
+        # try:
+        #     df.loc[['RACE' == 1, 'ORIGIN' != 0], 'RACE'] = 109
+        # except:
+        #     pass
+
+        # if df.RACE == 1 and df.ORIGIN != 0:
+        #     df.RACE = df.RACE.replace(1,109)
+
+        # try:
+        #     df.RACE = df.RACE.replace({1:101, 2:102, 3:103, 4:104, 5:105, [range(20,32),6,7,97]:107, [range(8,17),96]:108})
+        # except:
+        #     pass
+
+
+        #try:
+        #    df = df[df.AGE_DX != 999]
+        #except:
         #    pass
-        #try: 
-        #    df = df[df.SEQ_NUM != 88] 
-        #except: 
+        #try:
+        #    df = df[df.SEQ_NUM != 88]
+        #except:
         #    pass
-        #try: 
-        #    df = df[df.GRADE != 9] 
-        #except: 
+        #try:
+        #    df = df[df.GRADE != 9]
+        #except:
         #    pass
-        #try: 
-        #    df = df[df.EOD10_SZ != 999] 
-        #except: 
+        #try:
+        #    df = df[df.EOD10_SZ != 999]
+        #except:
         #    pass
-        #try: 
-        #    df = df[df.EOD10_PN < 95] 
-        #except: 
+        #try:
+        #    df = df[df.EOD10_PN < 95]
+        #except:
         #    pass
 
-        #try: 
+        #try:
         #    # remove unknown or not performed. reorder 0-neg, 1-borderline, 2-pos
         #    df = df[df.TUMOR_1V in [1,2,3]]
         #    df.TUMOR_1V = df.TUMOR_1V.replace(2, 0)
         #    df.TUMOR_1V = df.TUMOR_1V.replace(1, 2)
         #    df.TUMOR_1V = df.TUMOR_1V.replace(3, 1)
-        #except: 
+        #except:
         #    pass
 
         #try:
         #    df.TUMOR_2V = df.TUMOR_2V.replace(7, 0)
-        #    df = df[df.RADIATN < 7] 
+        #    df = df[df.RADIATN < 7]
         #except Exception as err:
         #    pass
 
@@ -277,11 +311,11 @@ class ModelSeer(MasterSeer):
         # create new column of all NaN
         df['SRV_BUCKET'] = np.NaN
         # fill buckets
-        last_cut = 0       
+        last_cut = 0
         for x, cut in enumerate(dependent_cutoffs):
             df.loc[(df.SRV_TIME_MON >= last_cut) & (df.SRV_TIME_MON < cut), 'SRV_BUCKET'] = x
             last_cut = cut
-        # assign all values larger than last cutoff to next bucket number       
+        # assign all values larger than last cutoff to next bucket number
         df['SRV_BUCKET'].fillna(len(dependent_cutoffs), inplace=True)
 
         #df = df.drop('SRV_TIME_MON', 1)
@@ -303,8 +337,8 @@ class ModelSeer(MasterSeer):
     def one_hot_data(self, data, cols):
         """ Takes a dataframe and a list of columns that need to be encoded.
             Returns a new dataframe with the one hot encoded vectorized data
-            
-            See the following for explanation: 
+
+            See the following for explanation:
                 http://stackoverflow.com/questions/17469835/one-hot-encoding-for-machine-learning
             """
         # check to only encode columns that are in the data
@@ -323,7 +357,7 @@ class ModelSeer(MasterSeer):
                     dependent_cutoffs - list of number of months to create buckets for dependent variable
                         default is [60] which will create two buckets (one <60 and one >= 60)
         """
-        
+
         mdl = model()
         model_name = model.__name__
 
@@ -368,7 +402,7 @@ class ModelSeer(MasterSeer):
             scores['recall'].append(r)
             scores['f1'].append(f)
 
-        # sort the y test data and keep the y_pred_test array in sync 
+        # sort the y test data and keep the y_pred_test array in sync
         # sort to make the graph more informative
         y_test, y_pred_test = zip(*sorted(zip(y_test, y_pred_test)))
 
@@ -395,26 +429,26 @@ if __name__ == '__main__':
     t0 = time.perf_counter()
 
     seer = ModelSeer(sample_size=5000, where="DATE_yr < 2008 AND O_DTH_CLASS = 0")
-    
-    ################ 
+
+    ################
 
     # these three lines are used to display a histogram for the slected columns
     #_, df = seer.describe_data()
-    #df = df[df.SRV_TIME_MON <= 360] 
+    #df = df[df.SRV_TIME_MON <= 360]
     #seer.show_hist(df, ['SRV_TIME_MON'])
 
-    ################ 
+    ################
 
     # this line will run the selcted models
-    #seer.test_models(styles = [RandomForestClassifier, KNeighborsRegressor, Lasso, Ridge], 
+    #seer.test_models(styles = [RandomForestClassifier, KNeighborsRegressor, Lasso, Ridge],
     #                 cols = ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'], num_features=3, dependent_cutoffs=[60, 120])
 
-    ################ 
+    ################
 
     # used to cross validate and plot a specific test and features.
     seer.cross_val_model(RandomForestClassifier, ['YR_BRTH','AGE_DX','RACE','ORIGIN','LATERAL','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS'], dependent_cutoffs=[60, 120])
 
-    ################ 
+    ################
 
     del seer
     print('\nModelSeer Module Elapsed Time: {0:.2f}'.format(time.perf_counter() - t0))
