@@ -3,6 +3,7 @@ import time
 import os
 import sqlite3
 import pandas as pd
+import numpy as np
 
 
 class MasterSeer(object):
@@ -12,14 +13,20 @@ class MasterSeer(object):
     # database file name on disk
     DB_NAME = 'seer.db'
 
-    def __init__(self, path = r'./data/', reload = True, verbose = True, batch = 5000):
+    def __init__(self, path = r'./data/', reload = True, verbose = True):
+
+        if type(path) != str:
+            raise TypeError('path must be a string')
+
+        if path[-1] != '/':
+            path += '/'            # if path does not end with a backslash, add one
+
         self.path = path
 
         # List to hold lists of [Column Offset, Column Name, Column Length]
         self.dataDictInfo = []
         self.db_conn = None
         self.db_cur = None
-        self.batch = batch
 
     def __del__(self):
         self.db_conn.close()
@@ -124,4 +131,170 @@ class MasterSeer(object):
         df = pd.read_sql_query("SELECT {0} FROM {1} WHERE {2} {3} {4}".format(col, source, cond, randomize, limit), self.db_conn)
 
         return df
+
+    def clean_recode_data(self, df, dependent_cutoffs):
+        """ clean_recode_data(df)
+            params: df - dataframe of seer data to clean
+                    dependent_cutoffs - months to use to code SRV_BUCKET
+                                        if blank, then use SRV_TIME_MON and don't code into survival buckets.
+            returns: cleaned dataframe, and name of new coded dependent variable
+
+            Each cleaning step is on its own line so we can pick and choose what 
+            steps we want after we decide on variables to study
+        """
+        # drop all rows that have invalid or missing data
+        try: 
+            df = df.dropna(subset = ['YR_BRTH']) # add column names here as needed
+        except Exception as err:
+            pass
+
+        try:
+            df.LATERAL = df.LATERAL.replace([0, 1,2,3], 1)  # one site = 1
+            df.LATERAL = df.LATERAL.replace([4,5,9], 2)     # paired = 2
+        except: 
+            pass
+
+        try:
+            df = df[df.O_DTH_CLASS == 0]
+        except:
+            pass
+
+        try:
+            # 0-benign, 1-borderline, 2-in situ, 3-malignant
+            df = df[df.BEHANAL != 5]
+            df.BEHANAL = df.BEHANAL.replace([3,4,6], 3)
+        except:
+            pass
+
+        try: 
+            df = df[df.HST_STGA != 8]
+            df = df[df.HST_STGA != 9]
+        except: 
+            pass
+
+        try: 
+            # 0-negative, 1-borderline,, 2-positive
+            df = df[df.ERSTATUS != 4]
+            df = df[df.ERSTATUS != 9]
+            df.ERSTATUS = df.ERSTATUS.replace(2, 0)
+            df.ERSTATUS = df.ERSTATUS.replace(1, 2)
+            df.ERSTATUS = df.ERSTATUS.replace(3, 1)
+        except:
+            pass
+
+        try: 
+            # 0-negative, 1-borderline,, 2-positive
+            df = df[df.PRSTATUS != 4]
+            df = df[df.PRSTATUS != 9]
+            df.PRSTATUS = df.PRSTATUS.replace(2, 0)
+            df.PRSTATUS = df.PRSTATUS.replace(1, 2)
+            df.PRSTATUS = df.PRSTATUS.replace(3, 1)
+        except:
+            pass
+
+        try:
+            df.RADIATN = df.RADIATN.replace(7, 0)
+            df.RADIATN = df.RADIATN.replace([2,3,4,5], 1)
+            df = df[df.RADIATN < 7] 
+        except Exception as err:
+            pass
+
+        try:
+            # code as 1 or 2-more than one
+            df.NUMPRIMS = df.NUMPRIMS.replace([x for x in range(2,37)], 2)
+        except Exception as err:
+            pass
+
+        #try: 
+        #    df = df[df.AGE_DX != 999] 
+        #except: 
+        #    pass
+        #try: 
+        #    df = df[df.SEQ_NUM != 88] 
+        #except: 
+        #    pass
+        #try: 
+        #    df = df[df.GRADE != 9] 
+        #except: 
+        #    pass
+        #try: 
+        #    df = df[df.EOD10_SZ != 999] 
+        #except: 
+        #    pass
+        #try: 
+        #    df = df[df.EOD10_PN < 95] 
+        #except: 
+        #    pass
+
+        #try: 
+        #    # remove unknown or not performed. reorder 0-neg, 1-borderline, 2-pos
+        #    df = df[df.TUMOR_1V in [1,2,3]]
+        #    df.TUMOR_1V = df.TUMOR_1V.replace(2, 0)
+        #    df.TUMOR_1V = df.TUMOR_1V.replace(1, 2)
+        #    df.TUMOR_1V = df.TUMOR_1V.replace(3, 1)
+        #except: 
+        #    pass
+
+        #try:
+        #    df.TUMOR_2V = df.TUMOR_2V.replace(7, 0)
+        #    df = df[df.RADIATN < 7] 
+        #except Exception as err:
+        #    pass
+
+
+        # create new dependent column called SRV_BUCKET to hold the survival time value
+        # based on the values sent into this function in the dependent_cutoffs list
+        # first bucket is set to 0, next 1, etc...
+        # Example dependent_cutoffs=[60,120,500]
+        #   if survival is less than 60 SRV_BUCKET is set to 0
+        #   if survival is >=60 and < 120 SRV_BUCKET is set to 1
+
+        if len(dependent_cutoffs) > 0:
+            # create new column of all NaN
+            df['SRV_BUCKET'] = np.NaN
+            # fill buckets
+            last_cut = 0       
+            for x, cut in enumerate(dependent_cutoffs):
+                df.loc[(df.SRV_TIME_MON >= last_cut) & (df.SRV_TIME_MON < cut), 'SRV_BUCKET'] = x
+                last_cut = cut
+            # assign all values larger than last cutoff to next bucket number       
+            df['SRV_BUCKET'].fillna(len(dependent_cutoffs), inplace=True)
+
+            dep_col = 'SRV_BUCKET'
+            df = df.drop('SRV_TIME_MON', 1)
+        else:
+            dep_col = 'SRV_TIME_MON'
+
+        # categorical columns to one hot encode, check to make sure they are in df
+        #cat_cols_to_encode = list(set(['RACE', 'ORIGIN', 'SEX', 'TUMOR_2V', 'HISTREC']) & set(df.columns))
+        #df = self.one_hot_data(df, cat_cols_to_encode)
+
+        df['CENSORED'] = df.STAT_REC == 4
+        df = df.drop('STAT_REC', 1)
+
+
+        df.replace([np.inf, -np.inf], np.nan)
+        df = df.fillna(0)
+
+        exc = pd.ExcelWriter('clean.xlsx')
+        df.to_excel(exc)
+        exc.save()
+
+        return df, dep_col
+
+    def one_hot_data(self, data, cols):
+        """ Takes a dataframe and a list of columns that need to be encoded.
+            Returns a new dataframe with the one hot encoded vectorized data
+            
+            See the following for explanation: 
+                http://stackoverflow.com/questions/17469835/one-hot-encoding-for-machine-learning
+            """
+        # check to only encode columns that are in the data
+        col_to_process = [c for c in cols if c in data]
+        return pd.get_dummies(data, columns = col_to_process,  prefix = col_to_process)
+
+
+
+               
+
 

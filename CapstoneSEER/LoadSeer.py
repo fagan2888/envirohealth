@@ -37,7 +37,7 @@ class LoadSeerData(MasterSeer):
         self.path = path
 
         # open connection to the database
-        super().__init__(path, reload, testMode, verbose, batch)
+        super().__init__(path, reload, testMode, verbose)
         self.db_conn, self.db_cur = super().init_database(self.reload)
 
         # TODO

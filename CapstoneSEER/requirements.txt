@@ -3,3 +3,4 @@ numpy==1.10.1
 pandas==0.17.0
 scikit-learn==0.17
 lifelines==0.8.0.2
+patsy=0.4.1
