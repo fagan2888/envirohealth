@@ -27,7 +27,7 @@ class ProjectSeer1(MasterSeer):
         if not censored:
             where += ' AND DATE_yr < 2008'
 
-        df = super().load_data(col  = ['YR_BRTH','AGE_DX','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS', 
+        df = super().load_data(col  = ['YR_BRTH','AGE_DX','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS', 'RACE', 'ORIGIN',
                                        'SRV_TIME_MON', 'STAT_REC'], 
                                cond = where, sample_size = self.sample_size)
 
@@ -40,7 +40,7 @@ class ProjectSeer1(MasterSeer):
 
         aaf = AalenAdditiveFitter()
 
-        modelspec = 'YR_BRTH + AGE_DX + RADIATN + HISTREC + ERSTATUS + PRSTATUS + BEHANAL + HST_STGA + NUMPRIMS'
+        modelspec = 'YR_BRTH + AGE_DX + RADIATN + HISTREC + ERSTATUS + PRSTATUS + BEHANAL + HST_STGA + NUMPRIMS + RACE'
         X = pt.dmatrix(modelspec, df, return_type='dataframe')
         X = X.join(df[['SRV_TIME_MON','CENSORED']])
         aaf.fit(X, 'SRV_TIME_MON', 'CENSORED')
@@ -65,7 +65,7 @@ class ProjectSeer1(MasterSeer):
         aaf = AalenAdditiveFitter()
 
         # define fields for the model
-        modelspec = 'YR_BRTH + AGE_DX + RADIATN + HISTREC + ERSTATUS + PRSTATUS + BEHANAL + HST_STGA + NUMPRIMS'
+        modelspec = 'YR_BRTH + AGE_DX + RADIATN + HISTREC + ERSTATUS + PRSTATUS + BEHANAL + HST_STGA + NUMPRIMS + RACE'
         X = pt.dmatrix(modelspec, df, return_type='dataframe')
         X = X.join(df[['SRV_TIME_MON','CENSORED']])
 
@@ -85,7 +85,7 @@ class ProjectSeer1(MasterSeer):
 
             params: pat_data-numpy array of patient specific values for the following columns
                         ['YR_BRTH','AGE_DX','RADIATN','HISTREC','ERSTATUS',
-                         'PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS']
+                         'PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS', 'RACE']
             returns: expected survival time in months
         '''
         if not self.model:
@@ -94,7 +94,7 @@ class ProjectSeer1(MasterSeer):
         exp = self.model.predict_expectation(test)
 
         if self.verbose:
-            cols = ['YR_BRTH','AGE_DX','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS']
+            cols = ['YR_BRTH','AGE_DX','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS','RACE']
             for i, col in enumerate(cols):
                 print('{0:10}: {1:.0f}'.format(col, pat_data[0][i+1]))
 
@@ -121,11 +121,11 @@ if __name__ == '__main__':
     seer = ProjectSeer1(sample_size = rows, verbose=True)
 
     #run first person
-    test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 4., 2.]])
+    test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 4., 2., 101.]])
     seer.process_patient(test)
 
     # run second person
-    test = np.array([[ 1., 1941., 74., 0, 0., 2., 1., 0., 3., 2.]])
+    test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 1., 2., 101.]])
     seer.process_patient(test)
 
     del seer
