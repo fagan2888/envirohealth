@@ -66,7 +66,7 @@ class MasterSeer(object):
 
             returns: dataframe of data dictionary from tab delimited file
         '''
-        
+
         REGEX_DD = '\$char([0-9]+).'
 
         t0 = time.perf_counter()
@@ -77,7 +77,7 @@ class MasterSeer(object):
         # read our custom tab delimited data dictionary
         df = pd.read_csv(self.path + fname, delimiter='\t')
 
-        # drop all rows where IMPORT_0_1 is a zero. 
+        # drop all rows where IMPORT_0_1 is a zero.
         df = df[df.IMPORT_0_1 > 0]
 
         # pre-compile regex to improve performance in loop
@@ -85,7 +85,7 @@ class MasterSeer(object):
         flen = []       # list to hold parsed field lengths
 
         # add length column
-        for row in df.TYPE: 
+        for row in df.TYPE:
             fields = reCompiled.match(row)
             if fields:
                 x = int(fields.groups()[0])
@@ -110,14 +110,14 @@ class MasterSeer(object):
             params: source - name of table to read from. default 'breast'
                     col - list of column names to return in SELECT statement
                     cond - string for WHERE clause of SELECT statement (do not include the keyword WHERE in the string)
-                           defaults to 'YR_BRTH > 0' 
+                           defaults to 'YR_BRTH > 0'
                     sample_size - number of records to return
                     all - if set to true, return entire table and ignore sample_size
 
             returns: dataframe of data
         '''
         if col:
-            col = ','.join(map(str, col)) 
+            col = ','.join(map(str, col))
         else:
             col = "*"
 
@@ -139,11 +139,11 @@ class MasterSeer(object):
                                         if blank, then use SRV_TIME_MON and don't code into survival buckets.
             returns: cleaned dataframe, and name of new coded dependent variable
 
-            Each cleaning step is on its own line so we can pick and choose what 
+            Each cleaning step is on its own line so we can pick and choose what
             steps we want after we decide on variables to study
         """
         # drop all rows that have invalid or missing data
-        try: 
+        try:
             df = df.dropna(subset = ['YR_BRTH']) # add column names here as needed
         except Exception as err:
             pass
@@ -151,7 +151,7 @@ class MasterSeer(object):
         try:
             df.LATERAL = df.LATERAL.replace([0, 1,2,3], 1)  # one site = 1
             df.LATERAL = df.LATERAL.replace([4,5,9], 2)     # paired = 2
-        except: 
+        except:
             pass
 
         try:
@@ -166,13 +166,13 @@ class MasterSeer(object):
         except:
             pass
 
-        try: 
+        try:
             df = df[df.HST_STGA != 8]
             df = df[df.HST_STGA != 9]
-        except: 
+        except:
             pass
 
-        try: 
+        try:
             # 0-negative, 1-borderline,, 2-positive
             df = df[df.ERSTATUS != 4]
             df = df[df.ERSTATUS != 9]
@@ -182,7 +182,7 @@ class MasterSeer(object):
         except:
             pass
 
-        try: 
+        try:
             # 0-negative, 1-borderline,, 2-positive
             df = df[df.PRSTATUS != 4]
             df = df[df.PRSTATUS != 9]
@@ -195,7 +195,7 @@ class MasterSeer(object):
         try:
             df.RADIATN = df.RADIATN.replace(7, 0)
             df.RADIATN = df.RADIATN.replace([2,3,4,5], 1)
-            df = df[df.RADIATN < 7] 
+            df = df[df.RADIATN < 7]
         except Exception as err:
             pass
 
@@ -205,39 +205,72 @@ class MasterSeer(object):
         except Exception as err:
             pass
 
-        #try: 
-        #    df = df[df.AGE_DX != 999] 
-        #except: 
+        #BG - race recode
+        try:
+            df.RACE = df.RACE.replace(1,101)
+            df.RACE = df.RACE.replace(2,102)
+            df.RACE = df.RACE.replace(3,103)
+            df.RACE = df.RACE.replace(4,104)
+            df.RACE = df.RACE.replace(5,105)
+            #df.RACE = df.RACE.replace([[x for x in range(20,32)],6,7,97],107)
+            df.RACE = df.RACE.replace([6,7,20,21,22,23,24,25,26,27,28,29,30,31,32,97],107)
+            #df.RACE = df.RACE.replace([[x for x in range(8,17)],96],108) doesn't fully work
+            df.RACE = df.RACE.replace([8,9,10,11,12,13,14,15,16,17,96],108)
+            df.RACE = df.RACE.replace(98,99)
+        except:
+            pass
+
+        try:
+            df.loc[(df['RACE'] == 101) & (df['ORIGIN'] != 0), 'RACE'] = 109
+        except:
+            pass
+
+        # try:
+        #     df[df.RACE == 1][df.ORIGIN != 0] = 109
+        # except:
+        #     pass
+
+        # if df.RACE == 1 and df.ORIGIN != 0:
+        #     df.RACE = df.RACE.replace(1,109)
+
+        # try:
+        #     df.RACE = df.RACE.replace({1:101, 2:102, 3:103, 4:104, 5:105, [range(20,32),6,7,97]:107, [range(8,17),96]:108})
+        # except:
+        #     pass
+
+        #try:
+        #    df = df[df.AGE_DX != 999]
+        #except:
         #    pass
-        #try: 
-        #    df = df[df.SEQ_NUM != 88] 
-        #except: 
+        #try:
+        #    df = df[df.SEQ_NUM != 88]
+        #except:
         #    pass
-        #try: 
-        #    df = df[df.GRADE != 9] 
-        #except: 
+        #try:
+        #    df = df[df.GRADE != 9]
+        #except:
         #    pass
-        #try: 
-        #    df = df[df.EOD10_SZ != 999] 
-        #except: 
+        #try:
+        #    df = df[df.EOD10_SZ != 999]
+        #except:
         #    pass
-        #try: 
-        #    df = df[df.EOD10_PN < 95] 
-        #except: 
+        #try:
+        #    df = df[df.EOD10_PN < 95]
+        #except:
         #    pass
 
-        #try: 
+        #try:
         #    # remove unknown or not performed. reorder 0-neg, 1-borderline, 2-pos
         #    df = df[df.TUMOR_1V in [1,2,3]]
         #    df.TUMOR_1V = df.TUMOR_1V.replace(2, 0)
         #    df.TUMOR_1V = df.TUMOR_1V.replace(1, 2)
         #    df.TUMOR_1V = df.TUMOR_1V.replace(3, 1)
-        #except: 
+        #except:
         #    pass
 
         #try:
         #    df.TUMOR_2V = df.TUMOR_2V.replace(7, 0)
-        #    df = df[df.RADIATN < 7] 
+        #    df = df[df.RADIATN < 7]
         #except Exception as err:
         #    pass
 
@@ -253,11 +286,11 @@ class MasterSeer(object):
             # create new column of all NaN
             df['SRV_BUCKET'] = np.NaN
             # fill buckets
-            last_cut = 0       
+            last_cut = 0
             for x, cut in enumerate(dependent_cutoffs):
                 df.loc[(df.SRV_TIME_MON >= last_cut) & (df.SRV_TIME_MON < cut), 'SRV_BUCKET'] = x
                 last_cut = cut
-            # assign all values larger than last cutoff to next bucket number       
+            # assign all values larger than last cutoff to next bucket number
             df['SRV_BUCKET'].fillna(len(dependent_cutoffs), inplace=True)
 
             dep_col = 'SRV_BUCKET'
@@ -285,16 +318,10 @@ class MasterSeer(object):
     def one_hot_data(self, data, cols):
         """ Takes a dataframe and a list of columns that need to be encoded.
             Returns a new dataframe with the one hot encoded vectorized data
-            
-            See the following for explanation: 
+
+            See the following for explanation:
                 http://stackoverflow.com/questions/17469835/one-hot-encoding-for-machine-learning
             """
         # check to only encode columns that are in the data
         col_to_process = [c for c in cols if c in data]
         return pd.get_dummies(data, columns = col_to_process,  prefix = col_to_process)
-
-
-
-               
-
-
