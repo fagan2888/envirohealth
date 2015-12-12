@@ -2,7 +2,8 @@ from MasterSeer import MasterSeer
 import numpy as np
 import matplotlib.pyplot as plt
 import patsy as pt
-from lifelines import AalenAdditiveFitter
+from lifelines import AalenAdditiveFitter, CoxPHFitter
+from lifelines.utils import k_fold_cross_validation
 
 class ProjectSeer1(MasterSeer):
 
@@ -23,7 +24,7 @@ class ProjectSeer1(MasterSeer):
 
     def load_and_clean_data(self, censored=True):
 
-        where = 'SRV_TIME_MON < 1000 AND HST_STGA < 8 AND DTH_CLASS < 9 AND ERSTATUS < 4 AND PRSTATUS < 4'
+        where = 'SRV_TIME_MON < 1000 AND HST_STGA < 8 AND O_DTH_CLASS = 0 AND ERSTATUS < 4 AND PRSTATUS < 4'
         if not censored:
             where += ' AND DATE_yr < 2008'
 
@@ -56,10 +57,40 @@ class ProjectSeer1(MasterSeer):
 
         return
 
+    def score_model(self):
+        # get the data and clean it
+        temp = self.sample_size
+        self.sample_size = 10000
+        df, dep = self.load_and_clean_data()
+        self.sample_size = temp
+
+        # create the model
+        aaf = AalenAdditiveFitter()
+        cph = CoxPHFitter()
+
+        # define fields for the model
+        modelspec = 'YR_BRTH + AGE_DX + RADIATN + HISTREC + ERSTATUS + PRSTATUS + BEHANAL + HST_STGA + NUMPRIMS + RACE'
+        X = pt.dmatrix(modelspec, df, return_type='dataframe')
+        X = X.join(df[['SRV_TIME_MON','CENSORED']])
+
+        # fit the model
+        #if self.verbose:
+        #    print('Creating Aalen Additive Model')
+
+        #aaf.fit(X, 'SRV_TIME_MON', 'CENSORED')
+
+        scores = k_fold_cross_validation(aaf, X, 'SRV_TIME_MON', event_col='CENSORED', k=5)
+        print('\nCross Validation Scores: ')
+        print(scores)
+        print('Score Mean: {0:.4}'.format(np.mean(scores)))
+        print('Score SD  : {0:.4}'.format(np.std(scores)))
+
+        return
+
 
     def prepare_model(self):
         # get the data and clean it
-        df, dep = self.load_and_clean_data(self)
+        df, dep = self.load_and_clean_data()
 
         # create the model
         aaf = AalenAdditiveFitter()
@@ -120,12 +151,16 @@ if __name__ == '__main__':
     
     seer = ProjectSeer1(sample_size = rows, verbose=True)
 
-    #run first person
-    test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 4., 2., 101.]])
-    seer.process_patient(test)
+    seer.score_model()
+    
 
-    # run second person
-    test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 1., 2., 101.]])
-    seer.process_patient(test)
+
+    ##run first person
+    #test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 4., 2., 101.]])
+    #seer.process_patient(test)
+
+    ## run second person
+    #test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 1., 2., 101.]])
+    #seer.process_patient(test)
 
     del seer

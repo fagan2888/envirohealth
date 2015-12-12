@@ -27,7 +27,7 @@ class ExploreSeer(MasterSeer):
         self.path = path
 
         # open connection to the database
-        super().__init__(path, False, verbose=verbose, batch=self.sample_size)
+        super().__init__(path, False, verbose=verbose)
         self.db_conn, self.db_cur = super().init_database(False)
 
 
