@@ -1,2 +1,2 @@
-# envirohealth
-EnviroHealth Georgetown Data Science Capstone Project
+# Surviving Cancer-- A Personal Calculator
+## EnviroHealth Georgetown Data Science Capstone Project
