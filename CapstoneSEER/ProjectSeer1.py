@@ -1,9 +1,11 @@
 from MasterSeer import MasterSeer
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import patsy as pt
-from lifelines import AalenAdditiveFitter, CoxPHFitter
-from lifelines.utils import k_fold_cross_validation
+import os
+from lifelines import AalenAdditiveFitter #, CoxPHFitter
+#from lifelines.utils import k_fold_cross_validation
 
 class ProjectSeer1(MasterSeer):
 
@@ -60,7 +62,7 @@ class ProjectSeer1(MasterSeer):
     def score_model(self):
         # get the data and clean it
         temp = self.sample_size
-        self.sample_size = 10000
+        self.sample_size = 100000
         df, dep = self.load_and_clean_data()
         self.sample_size = temp
 
@@ -73,12 +75,6 @@ class ProjectSeer1(MasterSeer):
         X = pt.dmatrix(modelspec, df, return_type='dataframe')
         X = X.join(df[['SRV_TIME_MON','CENSORED']])
 
-        # fit the model
-        #if self.verbose:
-        #    print('Creating Aalen Additive Model')
-
-        #aaf.fit(X, 'SRV_TIME_MON', 'CENSORED')
-
         scores = k_fold_cross_validation(aaf, X, 'SRV_TIME_MON', event_col='CENSORED', k=5)
         print('\nCross Validation Scores: ')
         print(scores)
@@ -89,6 +85,7 @@ class ProjectSeer1(MasterSeer):
 
 
     def prepare_model(self):
+
         # get the data and clean it
         df, dep = self.load_and_clean_data()
 
@@ -119,45 +116,63 @@ class ProjectSeer1(MasterSeer):
                          'PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS', 'RACE']
             returns: expected survival time in months
         '''
+        try:
+            os.remove('plot.png')
+        except:
+            pass
+
         if not self.model:
             self.model = self.prepare_model()
 
-        exp = self.model.predict_expectation(test)
+        exp = self.model.predict_expectation(pat_data)
 
         if self.verbose:
             cols = ['YR_BRTH','AGE_DX','RADIATN','HISTREC','ERSTATUS','PRSTATUS','BEHANAL','HST_STGA','NUMPRIMS','RACE']
-            for i, col in enumerate(cols):
-                print('{0:10}: {1:.0f}'.format(col, pat_data[0][i+1]))
+            if self.verbose:
+                for i, col in enumerate(cols):
+                    print('{0:10}: {1:.0f}'.format(col, pat_data[0][i+1]))
 
             print('Expected survival: {0:.1f} months'.format(exp[0][0]))
 
-            self.model.predict_survival_function(test).plot();
+            self.model.predict_survival_function(pat_data).plot(legend=None, color="#3F5D7D");
             plt.xlabel('Months')
-            plt.show()
+            plt.ylabel('Survival Percentage')
+            plt.title('Survival Analysis')
+
+            ax = plt.subplot(111)  
+            ax.spines["top"].set_visible(False)  
+            ax.spines["right"].set_visible(False)  
+
+            lbl = 'Expected: {0:.1f}'.format(exp[0][0])
+
+            # comment out the following line to revoce the vertical line as estimated survival
+            ax.axvline(x=exp[0][0],linewidth=3, color='b', ymin=0.15, ymax=0.65, label=lbl, dashes=(1,3)) #dashes='--')#, label='Expected: ' + str(exp[0][0]))
+
+            plt.savefig('plot.png', bbox_inches="tight")
+            if self.verbose:
+                plt.show()
 
         return exp[0][0]
 
 
 if __name__ == '__main__':
 
-    def_rows = 10000
+    #def_rows = 10000
 
-    try:
-        rows = int(input('Enter Sample Size [{0}]: '.format(def_rows)))
-        if rows < 100 or rows > 1000000:
-            rows = def_rows
-    except:
-        rows = def_rows
+    #try:
+    #    rows = int(input('Enter Sample Size [{0}]: '.format(def_rows)))
+    #    if rows < 100 or rows > 1000000:
+    #        rows = def_rows
+    #except:
+    #    rows = def_rows
     
-    seer = ProjectSeer1(sample_size = rows, verbose=True)
+    seer = ProjectSeer1(sample_size = 10000, verbose=True)
 
-    seer.score_model()
+    #seer.score_model()
     
-
-
     ##run first person
-    #test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 4., 2., 101.]])
-    #seer.process_patient(test)
+    test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 4., 2., 101.]])
+    seer.process_patient(test)
 
     ## run second person
     #test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 1., 2., 101.]])

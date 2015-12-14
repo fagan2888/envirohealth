@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>02c6287d-40ae-47c6-b01b-b495b7bf8434</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>ExploreSeer.py</StartupFile>
+    <StartupFile>ProjectSeer1.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -31,6 +31,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ModelSeer.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="module1.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ProjectSeer1.py">
