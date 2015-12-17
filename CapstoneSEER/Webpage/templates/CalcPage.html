@@ -29,17 +29,23 @@
             <form class="form-inline" role="form" id="calcform" method="POST" action="/showResultsTEST">
               <div class="col-lg-6">
                 <div class="form-group">
-                    <label class="control-label " for="age">
-                      Age
+                    <label class="control-label " for="agedx">
+                      Age at Diagnosis
                     </label></br>
-                    <input class="form-control" id="age" name="age" type="text"/>
+                    <input class="form-control" id="agedx" name="agedx" type="text"/>
+                </div></br></br>
+                <div class="form-group">
+                    <label class="control-label " for="yrbrth">
+                      Year of Birth
+                    </label></br>
+                    <input class="form-control" id="yrbrth" name="yrbrth" type="text"/>
                 </div></br></br>
                 <div class="form-group">
                     <label class="control-label " for="radtn">
                       Have you received radiation therapy?
                     </label></br>
                     <select class="select form-control" id="radtn" name="radtn">
-                      <option>
+                      <option value="NaN">
 
                       </option>
                       <option value="1">
@@ -49,14 +55,13 @@
                         No
                       </option>
                     </select>
-                  <!---</div>--->
                 </div></br></br>
                 <div class="form-group">
                     <label class="control-label " for="race">
                       Please select your race:
                     </label></br>
                     <select class="select form-control" id="race" name="race">
-                      <option>
+                      <option value="NaN">
 
                       </option>
                       <option value="101">
@@ -93,7 +98,7 @@
                     Laterality:
                   </label></br>
                   <select class="select form-control" id="laterality" name="laterality">
-                    <option>
+                    <option value="NaN">
 
                     </option>
                     <option value="1">
@@ -109,7 +114,7 @@
                     Tumor behavior:
                   </label></br>
                   <select class="select form-control" id="tumorbehavior" name="tumorbehavior">
-                    <option>
+                    <option value="NaN">
 
                     </option>
                     <option value ="0">
@@ -131,7 +136,7 @@
                     Tumor stage:
                   </label></br>
                   <select class="select form-control" id="tumorstage" name="tumorstage">
-                    <option>
+                    <option value="NaN">
 
                     </option>
                     <option value ="0">
@@ -153,7 +158,7 @@
                     Number of Primaries:
                   </label></br>
                   <select class="select form-control" id="numberprims" name="numberprims">
-                    <option>
+                    <option value="NaN">
 
                     </option>
                     <option value="1">
@@ -169,7 +174,7 @@
                     Estrogen receptor status:
                   </label></br>
                   <select class="select form-control" id="erstatus" name="erstatus">
-                    <option>
+                    <option value="NaN">
 
                     </option>
                     <option value="0">
@@ -188,7 +193,7 @@
                     Progesterone receptor status:
                   </label></br>
                   <select class="select form-control" id="prstatus" name="prstatus">
-                    <option>
+                    <option value="NaN">
 
                     </option>
                     <option value="0">
