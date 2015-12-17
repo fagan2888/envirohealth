@@ -117,7 +117,7 @@ class ProjectSeer1(MasterSeer):
             returns: expected survival time in months
         '''
         try:
-            os.remove('./plot.png')
+            os.remove('./static/plot.png')
         except:
             pass
 
@@ -132,7 +132,9 @@ class ProjectSeer1(MasterSeer):
                 for i, col in enumerate(cols):
                     print('{0:10}: {1:.0f}'.format(col, pat_data[0][i+1]))
 
-            print('Expected survival: {0:.1f} months'.format(exp[0][0]))
+            exp_srv_mnth = ('Expected survival: {0:.1f} months'.format(exp[0][0]))
+
+            print(exp_srv_mnth)
 
             self.model.predict_survival_function(pat_data).plot(legend=None, color="#3F5D7D");
             plt.xlabel('Months')

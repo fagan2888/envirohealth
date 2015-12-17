@@ -43,9 +43,9 @@ def showResultsTEST():
     _erstatus = request.form['erstatus']
     _prstatus = request.form['prstatus']
 
-    test1 = np.array([[1.,_yrbrth,_agedx,_radtn,_tumorstage,_erstatus,_prstatus,_tumorbehavior,_tumorstage,_numprims,_race]], dtype=np.float64)
-    seer = ProjectSeer1(sample_size = 5000, verbose=True)
-    res = seer.process_patient(test1)
+    usr_var_array = np.array([[1.,_yrbrth,_agedx,_radtn,_tumorstage,_erstatus,_prstatus,_tumorbehavior,_tumorstage,_numprims,_race]], dtype=np.float64)
+    seer = ProjectSeer1(sample_size = 2000, verbose=True)
+    res = seer.process_patient(usr_var_array)
     return render_template("results.html",age = _agedx, birthyear = _yrbrth, radiation = _radtn,race = _race,laterality = _laterality,tumorbehavior = _tumorbehavior,tumorstage = _tumorstage,numprims = _numprims,erstatus = _erstatus,prstatus = _prstatus)
 
 if __name__ == "__main__":
