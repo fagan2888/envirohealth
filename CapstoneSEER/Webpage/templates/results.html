@@ -2,9 +2,12 @@
 <!---Run http://localhost:5000/#--->
 <html lang="en">
   <head>
-      <title>Information</title>
-      <link href="http://getbootstrap.com/dist/css/bootstrap.min.css" rel="stylesheet">
-      <link href="http://getbootstrap.com/examples/jumbotron-narrow/jumbotron-narrow.css" rel="stylesheet">
+    <meta http-equiv="cache-control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="-1" />
+    <title>Information</title>
+    <link href="http://getbootstrap.com/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="http://getbootstrap.com/examples/jumbotron-narrow/jumbotron-narrow.css" rel="stylesheet">
   </head>
   <div class="container">
       <div class="header">
@@ -33,7 +36,7 @@
         Number of Primaries: {{numprims}}</br>
         Estrogen Receptor Status: {{erstatus}}</br>
         Progesterone Receptor Status: {{prstatus}}</br></br>
-        <img src="/static/plot.png" alt="plot" class="img-responsive">
+        <img src="{{dyn_img}}" alt="plot" class="img-responsive">
       </div>
       </div>
 </html>
