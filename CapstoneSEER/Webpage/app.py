@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import patsy as pt
 from lifelines import AalenAdditiveFitter
+import random
 
 app = Flask(__name__)
 
@@ -43,10 +44,12 @@ def showResultsTEST():
     _erstatus = request.form['erstatus']
     _prstatus = request.form['prstatus']
 
+    dyn_img = str('./static/' + str(random.random()) + '.png')
     usr_var_array = np.array([[1.,_yrbrth,_agedx,_radtn,_tumorstage,_erstatus,_prstatus,_tumorbehavior,_tumorstage,_numprims,_race]], dtype=np.float64)
-    seer = ProjectSeer1(sample_size = 2000, verbose=True)
-    res = seer.process_patient(usr_var_array)
-    return render_template("results.html",age = _agedx, birthyear = _yrbrth, radiation = _radtn,race = _race,laterality = _laterality,tumorbehavior = _tumorbehavior,tumorstage = _tumorstage,numprims = _numprims,erstatus = _erstatus,prstatus = _prstatus)
+    seer = ProjectSeer1(sample_size = 100000, verbose=True)
+    res = seer.process_patient(usr_var_array, dyn_img)
+    
+    return render_template("results.html", dyn_img = dyn_img, age = _agedx, birthyear = _yrbrth, radiation = _radtn,race = _race,laterality = _laterality,tumorbehavior = _tumorbehavior,tumorstage = _tumorstage,numprims = _numprims,erstatus = _erstatus,prstatus = _prstatus)
 
 if __name__ == "__main__":
     app.run()
