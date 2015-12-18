@@ -4,6 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import patsy as pt
 import os
+import random
 from lifelines import AalenAdditiveFitter #, CoxPHFitter
 #from lifelines.utils import k_fold_cross_validation
 
@@ -106,7 +107,7 @@ class ProjectSeer1(MasterSeer):
         return aaf
 
 
-    def process_patient(self, pat_data):
+    def process_patient(self, pat_data, dyn_img):
         ''' process_patient(pat_data)
                fits the model if not already done, estimates survival of individual patient
                and displays patient's survival analysis graph.
@@ -150,7 +151,8 @@ class ProjectSeer1(MasterSeer):
             # comment out the following line to revoce the vertical line as estimated survival
             ax.axvline(x=exp[0][0],linewidth=3, color='b', ymin=0.15, ymax=0.65, label=lbl, dashes=(1,3)) #dashes='--')#, label='Expected: ' + str(exp[0][0]))
 
-            plt.savefig('./static/plot.png', bbox_inches="tight")
+            # plt.savefig('./static/' + nameappend + '.png', bbox_inches="tight")
+            plt.savefig(dyn_img, bbox_inches="tight")
             # if self.verbose:
             #     plt.show()
 
