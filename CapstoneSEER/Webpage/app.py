@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import patsy as pt
 from lifelines import AalenAdditiveFitter
 import random
+import os
+import pandas as pd
 
 app = Flask(__name__)
 
@@ -46,10 +48,12 @@ def showResultsTEST():
 
     dyn_img = str('./static/' + str(random.random()) + '.png')
     usr_var_array = np.array([[1.,_yrbrth,_agedx,_radtn,_tumorstage,_erstatus,_prstatus,_tumorbehavior,_tumorstage,_numprims,_race]], dtype=np.float64)
-    seer = ProjectSeer1(sample_size = 100000, verbose=True)
+    seer = ProjectSeer1(sample_size = 10000, verbose=True)
     res = seer.process_patient(usr_var_array, dyn_img)
-    
-    return render_template("results.html", dyn_img = dyn_img, age = _agedx, birthyear = _yrbrth, radiation = _radtn,race = _race,laterality = _laterality,tumorbehavior = _tumorbehavior,tumorstage = _tumorstage,numprims = _numprims,erstatus = _erstatus,prstatus = _prstatus)
+    srv_mnth = str(res)
+    srv_prd = srv_mnth.index('.') + 3
+    red_srv_mnth = srv_mnth[:srv_prd]
+    return render_template("results.html", red_srv_mnth = red_srv_mnth, dyn_img = dyn_img, age = _agedx, birthyear = _yrbrth, radiation = _radtn,race = _race,laterality = _laterality,tumorbehavior = _tumorbehavior,tumorstage = _tumorstage,numprims = _numprims,erstatus = _erstatus,prstatus = _prstatus)
 
 if __name__ == "__main__":
     app.run()

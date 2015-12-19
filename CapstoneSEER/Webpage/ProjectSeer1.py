@@ -118,7 +118,7 @@ class ProjectSeer1(MasterSeer):
             returns: expected survival time in months
         '''
         try:
-            os.remove('./static/plot.png')
+            os.remove('./static/*.png')
         except:
             pass
 
