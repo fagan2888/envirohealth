@@ -11,6 +11,7 @@ import os
 import pandas as pd
 
 app = Flask(__name__)
+seer = None
 
 @app.route("/")
 def main():
@@ -34,7 +35,7 @@ def showResults():
     _yrbrth = request.form['yrbrth']
     _radtn = request.form['radtn']
     _race = request.form['race']
-    _laterality = request.form['laterality']
+    _histology = request.form['histology']
     _tumorbehavior = request.form['tumorbehavior']
     _tumorstage = request.form['tumorstage']
     _numprims = request.form['numberprims']
@@ -42,13 +43,17 @@ def showResults():
     _prstatus = request.form['prstatus']
 
     dyn_img = str('./static/' + str(random.random()) + '.png')
-    usr_var_array = np.array([[1.,_yrbrth,_agedx,_radtn,_tumorstage,_erstatus,_prstatus,_tumorbehavior,_tumorstage,_numprims,_race]], dtype=np.float64)
-    seer = ProjectSeer1(sample_size = 10000, verbose=True)
+    usr_var_array = np.array([[1.,_yrbrth,_agedx,_radtn,_histology,_erstatus,_prstatus,_tumorbehavior,_tumorstage,_numprims,_race]], dtype=np.float64)
+    # seer = ProjectSeer1(sample_size = 1000, verbose=True)
     res = seer.process_patient(usr_var_array, dyn_img)
     srv_mnth = str(res)
     srv_prd = srv_mnth.index('.') + 3
     red_srv_mnth = srv_mnth[:srv_prd]
-    return render_template("results.html", red_srv_mnth = red_srv_mnth, dyn_img = dyn_img, age = _agedx, birthyear = _yrbrth, radiation = _radtn,race = _race,laterality = _laterality,tumorbehavior = _tumorbehavior,tumorstage = _tumorstage,numprims = _numprims,erstatus = _erstatus,prstatus = _prstatus)
+    return render_template("results.html", red_srv_mnth = red_srv_mnth, dyn_img = dyn_img)
 
 if __name__ == "__main__":
+    seer = ProjectSeer1(sample_size = 10000, verbose=True)
+    test = np.array([[ 1., 1961., 54., 0, 0., 2., 1., 0., 4., 2., 101.]])
+    x = seer.process_patient(test, 'test.png')
+    print (x)
     app.run()
