@@ -28,13 +28,8 @@ def showCalcPage():
 def showInformation():
     return render_template('Information.html')
 
-@app.route("/showResults")
+@app.route("/showResults", methods=['POST'])
 def showResults():
-    return ProjectSeer1(MasterSeer)
-    return render_template("results.html")
-
-@app.route("/showResultsTEST", methods=['POST'])
-def showResultsTEST():
     _agedx = request.form['agedx']
     _yrbrth = request.form['yrbrth']
     _radtn = request.form['radtn']
